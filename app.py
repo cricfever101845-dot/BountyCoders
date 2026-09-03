@@ -1,5 +1,5 @@
 from flask import Flask,render_template,request,redirect,url_for
-from werkzeug.security import generate_password_hash,check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 import sqlite3
 import subprocess
 from datetime import datetime
@@ -64,6 +64,7 @@ def get_db():
     return conn
 
 init_db()
+
 
 
 
