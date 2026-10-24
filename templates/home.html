@@ -808,7 +808,240 @@
       #title { font-size: 38px; letter-spacing: 2px; }
       #profile-box { width: 150px; }
     }
+
+/* BC_SPLIT_HOME_UI_START */
+/* Trade Winds for headings; Titan One for the rounded blue/yellow hero letters. */
+body h1:not(#title), body h2, body h3,
+.modal-title, .bounty-modal-title, .bounty-empty-card h3 {
+  font-family: "Trade Winds", Georgia, serif;
+}
+
+/* Words flank the ship in the pre-existing full-screen background video. */
+#main {
+  align-items: center;
+  justify-content: center;
+  gap: clamp(25px, 5vh, 65px);
+  padding: 90px 14px 72px;
+}
+
+#title.bc-title-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(190px, 32vw, 490px) minmax(0, 1fr);
+  align-items: center;
+  width: min(1370px, 98vw);
+  max-width: none;
+  position: relative;
+  top: 0;
+  left: auto;
+  margin: 0;
+  padding: 0;
+  font-size: initial;
+  letter-spacing: normal;
+  line-height: 1;
+  color: inherit;
+  -webkit-text-stroke: 0 transparent;
+  text-shadow: none;
+  pointer-events: none;
+}
+
+#title .bc-title-word {
+  display: block;
+  font-family: "Titan One", "Arial Rounded MT Bold", "Arial Black", sans-serif;
+  font-size: clamp(28px, 4.6vw, 70px);
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #0879dd;
+  -webkit-text-stroke: 3px #ffe34f;
+  paint-order: stroke fill;
+  text-shadow:
+    0 3px 0 #022958,
+    0 6px 0 #001c42,
+    0 10px 18px rgba(0, 11, 32, 0.85),
+    0 0 18px rgba(255, 221, 59, 0.32);
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
+}
+
+#title .bc-title-bounty { justify-self: end; }
+#title .bc-title-coders { justify-self: start; }
+#title .bc-ship-gap { min-width: 0; }
+
+/* Undo the previous offset so PLAY sits under the centre ship. */
+#play-btn {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  margin: 0;
+  transform: none;
+  font-family: "Trade Winds", Georgia, serif;
+  font-size: clamp(17px, 2vw, 23px);
+  background: #ffe34f;
+  color: #063678;
+  border: 3px solid #0864c9;
+  border-radius: 16px;
+  box-shadow: 0 7px 24px rgba(0, 15, 43, 0.5), 0 0 18px rgba(255, 227, 79, 0.35);
+}
+#play-btn:hover {
+  background: #177ddf;
+  border-color: #ffe34f;
+  color: #ffe34f;
+  transform: translateY(-3px);
+}
+
+/* Keep the words on opposite sides even on narrow screens. */
+@media (max-width: 700px) {
+  #title.bc-title-split {
+    width: 99vw;
+    grid-template-columns: minmax(0, 1fr) 29vw minmax(0, 1fr);
+  }
+  #title .bc-title-word {
+    font-size: clamp(14px, 3.65vw, 26px);
+    letter-spacing: 0;
+    -webkit-text-stroke: 1.65px #ffe34f;
+    text-shadow: 0 2px 0 #022958, 0 4px 10px rgba(0, 11, 32, 0.85);
+  }
+  #main { gap: 35px; padding: 82px 4px 58px; }
+  #play-btn { padding: 12px 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #play-btn { transition: none; }
+}
+/* BC_SPLIT_HOME_UI_END */
+
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bounty-refresh.css') }}">
+
+
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bc-trade-winds.css') }}" data-bc-typography="v2">
+<style id="bounty-history-layout-v2">
+/* BEGIN BOUNTY_HISTORY_LAYOUT_V2 */
+#history-modal .modal-inner {
+  display: block !important;
+  width: min(540px, 94vw) !important;
+  min-width: 0 !important;
+  max-width: 540px !important;
+  max-height: min(80vh, 700px) !important;
+  overflow-y: auto !important;
+  background: linear-gradient(160deg, rgba(17,44,69,.98), rgba(4,20,34,.98)) !important;
+  border: 1px solid rgba(255,203,78,.55) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 20px 65px rgba(0,0,0,.62) !important;
+  padding: 30px !important;
+  color: #f7f9ff !important;
+}
+#history-modal .modal-title {
+  display:block !important;
+  position: static !important;
+  margin: 4px 28px 22px !important;
+  font-family: 'Trade Winds', cursive !important;
+  color: #ffd15d !important;
+  text-align: center !important;
+  font-size: clamp(18px, 3vw, 24px) !important;
+  line-height:1.4 !important;
+  text-shadow: none !important;
+}
+#history-modal .tab-bar {display:flex !important; gap:12px !important; margin:0 0 18px !important;}
+#history-modal .tab-btn {
+  min-width:0 !important;
+  color: #e5effe !important;
+  border: 1px solid rgba(255,209,93,.35) !important;
+  background: rgba(255,255,255,.1) !important;
+  font-family: 'Trade Winds', cursive !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  padding: 12px 7px !important;
+  text-shadow: none !important;
+}
+#history-modal .tab-btn.active {
+  color: #0b2340 !important;
+  background: #ffd15d !important;
+  border-color: #ffd15d !important;
+}
+#history-modal #history-content {
+  min-height: 80px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+  position:static !important;
+  overflow: visible !important;
+}
+#history-modal #history-content .history-item {
+  position:relative !important;
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  flex-wrap:wrap !important;
+  gap:10px 16px !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:66px !important;
+  margin:0 !important;
+  padding:13px 16px !important;
+  background:rgba(255,255,255,.075) !important;
+  border:1px solid rgba(196,221,249,.18) !important;
+  border-radius:12px !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+}
+#history-modal #history-content .history-item .course-name,
+#history-modal #history-content .history-item .course-meta {
+  display:block !important;
+  position:static !important;
+  float:none !important;
+  flex:none !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  padding:0 !important;
+  margin:0 !important;
+  inset:auto !important;
+  transform:none !important;
+  rotate:none !important;
+  filter:none !important;
+  -webkit-text-stroke:0 !important;
+  text-shadow:none !important;
+  text-transform:none !important;
+  letter-spacing:.01em !important;
+  line-height:1.45 !important;
+  text-align:left !important;
+  white-space:normal !important;
+  overflow-wrap:anywhere !important;
+  box-shadow:none !important;
+  background:transparent !important;
+  border:0 !important;
+}
+#history-modal #history-content .history-item .course-name {
+  color:#ffe3a3 !important;
+  flex:1 1 155px !important;
+  width:auto !important;
+  font-family:'Segoe UI',Arial,sans-serif !important;
+  font-size:16px !important;
+  font-weight:750 !important;
+}
+#history-modal #history-content .history-item .course-meta {
+  color:#c8d5e6 !important;
+  flex:0 1 auto !important;
+  width:auto !important;
+  text-align:right !important;
+  font-family:'Segoe UI',Arial,sans-serif !important;
+  font-size:13px !important;
+  font-weight:500 !important;
+  opacity:1 !important;
+}
+#history-modal .modal-close {color:#fff !important;}
+@media (max-width:480px) {
+  #history-modal .modal-inner {padding:22px 16px !important;}
+  #history-modal #history-content .history-item .course-meta {text-align:left !important;}
+}
+/* END BOUNTY_HISTORY_LAYOUT_V2 */
+</style>
+<link rel="stylesheet" href="/static/css/bounty_submission.css" data-bounty-submission="1">
 </head>
 <body>
 
@@ -852,7 +1085,11 @@
        MAIN CONTENT
   ══════════════════════════════════════════════════════════════ -->
   <div id="main">
-    <h1 id="title">BOUNTY CODERS</h1>
+    <h1 id="title" class="bc-title-split" aria-label="Bounty Coders">
+      <span class="bc-title-word bc-title-bounty" aria-hidden="true">BOUNTY</span>
+      <span class="bc-ship-gap" aria-hidden="true"></span>
+      <span class="bc-title-word bc-title-coders" aria-hidden="true">CODERS</span>
+    </h1>
     <button id="play-btn" onclick="startIntro()">▶ PLAY</button>
   </div>
 
@@ -936,7 +1173,7 @@
   <div id="bounty-modal" class="modal-backdrop" onclick="backdropClose(event, 'bounty-modal')">
     <div class="modal-inner bounty-collection-modal" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="closeModal('bounty-modal')" aria-label="Close">✕</button>
-      
+
       <div class="bounty-collection-header">
         <div class="bounty-modal-title">☠ WANTED POSTERS ☠</div>
         <div id="bounty-collection-subtitle" class="bounty-subtitle">Grand Line Bounty Registry</div>
@@ -1185,12 +1422,12 @@
   async function loadBounty() {
     const stage = document.getElementById('bounty-stage');
     stage.innerHTML = '<div class="modal-loading" style="color:#ffd700;">⚓ Loading bounty posters…</div>';
-    
+
     try {
       const res = await fetch('/api/bounty_collection');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       bountyCollectionData = await res.json();
-      
+
       // Keep selected course, reset page to 0
       currentPosterIndex = 0;
       updateCourseTabButtons();
@@ -1309,7 +1546,7 @@
     stage.innerHTML = `
       <div class="wanted-poster-card" role="region" aria-label="Bounty poster ${currentPosterIndex + 1}">
         <img src="/static/media/bounty_template.png" class="poster-template-img" alt="One Piece Wanted Poster" />
-        
+
         <!-- Avatar Picture inside white frame -->
         <div class="poster-avatar-box">
           ${avatarUrl ? `<img src="${escHtml(avatarUrl)}" class="poster-avatar-img" alt="${escHtml(displayName)}" onerror="this.style.display='none'" />` : ''}

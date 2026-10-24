@@ -1,0 +1,36 @@
+/* Local font; no Google Fonts request needed during the demo. */
+@font-face {font-family:'Trade Winds'; src:url('/static/fonts/TradeWinds-Regular.ttf') format('truetype'); font-style:normal; font-weight:400; font-display:swap;}
+/* Pirate font across pages; code editors retain monospace readability. */
+html, body, body * {font-family:'Trade Winds','Trebuchet MS',Arial,sans-serif!important;}
+#code-editor,#result-display,#lost-error-msg,code,pre,kbd,samp {
+  font-family:Consolas,'Courier New',monospace!important;
+}
+/* Normal bold home title: blue letters, gold/yellow border, center ship gap. */
+#title.bc-release-title {
+  width:min(1250px,96vw)!important;max-width:none!important;display:grid!important;
+  grid-template-columns:minmax(0,1fr) clamp(170px,30vw,440px) minmax(0,1fr)!important;
+  align-items:center!important;position:relative!important;top:0!important;left:auto!important;
+  padding:0!important;margin:0 auto 26px!important;background:transparent!important;
+  text-shadow:none!important;-webkit-text-stroke:0 transparent!important;
+}
+#title.bc-release-title span:not(.bc-ship-gap) {
+  font-family:Arial,Helvetica,sans-serif!important;font-weight:900!important;
+  color:#1174ed!important;-webkit-text-stroke:2.5px #ffd43b!important;
+  paint-order:stroke fill;font-size:clamp(25px,4.2vw,65px)!important;
+  line-height:1.1!important;white-space:nowrap!important;text-align:center!important;
+  text-shadow:0 2px 9px rgba(0,16,40,.28)!important;
+}
+body:has(.bc-release-title) #play-btn {
+  position:static!important;left:auto!important;margin:0 auto!important;
+}
+@media(max-width:670px) {
+ #title.bc-release-title {grid-template-columns:minmax(0,1fr) 18vw minmax(0,1fr)!important;}
+ #title.bc-release-title span:not(.bc-ship-gap) {-webkit-text-stroke:1.5px #ffd43b!important;font-size:clamp(17px,4.3vw,30px)!important;}
+}
+/* Preserve the game's existing styles; fix known course history overlap. */
+#history-modal #history-content .history-item {display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;flex-wrap:wrap!important;}
+#history-modal .history-item .course-name {position:static!important;float:none!important;flex:1 1 140px!important;width:auto!important;min-width:0!important;transform:none!important;text-shadow:none!important;-webkit-text-stroke:0!important;}
+#history-modal .history-item .course-meta {position:static!important;float:none!important;flex:0 1 auto!important;width:auto!important;transform:none!important;}
+/* Keep the ship video vivid, as requested. */
+#bg-video,#quiz-bg-video,#intro-video,#transition-video {filter:none!important; opacity:1!important;}
+body:has(#bg-video)::before {content:none!important;background:none!important;opacity:0!important;}

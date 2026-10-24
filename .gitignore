@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Portable submission and private local state
+*.db
+*.db-*
+*.sqlite*
+_download_cache/
+.compiler_cache/
+runtime/
+demo_data/
+_bounty_upgrade_backups/
+*.bak
+*.before-*
+*.backup-*
+*.zip
+.env.*
+!.env.example

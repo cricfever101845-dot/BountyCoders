@@ -1,0 +1,105 @@
+/* BountyCoders — Trade Winds everywhere except the normal home hero title.
+   Google Fonts requires internet; font falls back if unavailable. */
+
+
+/* Typography for the whole project: pages, navigation, modals and buttons. */
+html, body, body * {
+  font-family: 'Trade Winds', 'Trebuchet MS', Arial, sans-serif !important;
+}
+
+/* Typed source code, logs and results should ALWAYS remain readable. */
+#code-editor, #result-display, #lost-error-msg,
+code, pre, kbd, samp, .monospace {
+  font-family: Consolas, 'Cascadia Code', 'Courier New', monospace !important;
+}
+
+/* Keep original footage bright, not tinted or darkened by the old UI pack. */
+#bg-video, #quiz-bg-video, #intro-video, #transition-video {
+  filter: none !important;
+  opacity: 1 !important;
+}
+/* The older cinematic UI injects this dark veil onto every video page. */
+body:has(#bg-video)::before {
+  content: none !important;
+  background: none !important;
+  opacity: 0 !important;
+}
+
+/* Home screen: regular BOLD lettering, NOT Trade Winds or Titan One.
+   Keep blue letters, golden outlines, and a central opening for the ship. */
+body:has(#main #title) #title,
+body:has(#main #title) #title *,
+body:has(#main .hero-title-wrap),
+body:has(#main .hero-title-wrap) .hero-word {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 900 !important;
+}
+
+#title.bc-title-split {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) clamp(170px, 31vw, 460px) minmax(0, 1fr) !important;
+  align-items: center !important;
+  width: min(1350px, 98vw) !important;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  top: 0 !important;
+  left: auto !important;
+  position: relative !important;
+  color: #1166d9 !important;
+  -webkit-text-stroke: 0 transparent !important;
+  background: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+  line-height: 1 !important;
+  overflow: visible !important;
+  pointer-events: none;
+}
+
+#title .bc-title-word {
+  display: block !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: clamp(26px, 4.2vw, 61px) !important;
+  font-weight: 900 !important;
+  line-height: 1.16 !important;
+  letter-spacing: .015em !important;
+  white-space: nowrap !important;
+  color: #1269e3 !important;
+  -webkit-text-fill-color: #1269e3 !important;
+  -webkit-text-stroke: 2.5px #ffe44e !important;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 #052a62, 0 7px 14px rgba(0, 21, 68, .50) !important;
+  background: none !important;
+  filter: none !important;
+}
+#title .bc-title-bounty { justify-self: end; }
+#title .bc-title-coders { justify-self: start; }
+#title .bc-ship-gap { min-width: 0; }
+
+/* Keep the PLAY button centered even if older theme set left offsets. */
+body:has(#main #title) #main {
+  align-items: center !important;
+  justify-content: center !important;
+  gap: clamp(25px, 5vh, 65px) !important;
+}
+body:has(#main #title) #play-btn {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 700px) {
+  #title.bc-title-split {
+    width: 99vw !important;
+    grid-template-columns: minmax(0, 1fr) 29vw minmax(0, 1fr) !important;
+  }
+  #title .bc-title-word {
+    font-size: clamp(14px, 3.7vw, 26px) !important;
+    letter-spacing: 0 !important;
+    -webkit-text-stroke: 1.6px #ffe44e !important;
+  }
+}

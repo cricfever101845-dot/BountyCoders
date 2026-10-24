@@ -1,0 +1,15 @@
+{
+  "python-3.13.17-embed-amd64.zip": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+  "tcc-0.9.27-win64-bin.zip": "34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c6954714faabb2",
+  "tcc-0.9.27.tar.bz2": "de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c",
+  "temurin-jdk-21-win64.zip": "f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e",
+  "TradeWinds-OFL.txt": "018d17b5e04c0a217a21979fa6b6d77bd5a143a5f06ea2ea102e427abd1ebfa2",
+  "TradeWinds-Regular.ttf": "bbc4c9a17927d6c5076a1957b0b165fae6c835c1bfa0fb8c07053243097e495b",
+  "blinker-1.9.0-py3-none-any.whl": "ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc",
+  "click-8.5.0-py3-none-any.whl": "255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+  "flask-3.1.2-py3-none-any.whl": "ca1d8112ec8a6158cc29ea4858963350011b5c846a414cdb7a954aa9e967d03c",
+  "itsdangerous-2.2.0-py3-none-any.whl": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
+  "jinja2-3.1.6-py3-none-any.whl": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+  "markupsafe-3.0.4-cp313-cp313-win_amd64.whl": "1f1f9477e174582b0a1b583d60b66e1f2cf5d3fe12cee985e4aedf44766600e5",
+  "werkzeug-3.1.9-py3-none-any.whl": "6392e50c78460ba618e5b21f08a71f59c99ce99cdc6cf6e3dd7e6ccca8754fab"
+}

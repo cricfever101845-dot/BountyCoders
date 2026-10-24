@@ -17,7 +17,7 @@ from evaluator import compare_outputs, classify_error
 from html_evaluator import evaluate_html
 
 app = Flask(__name__)
-app.secret_key = 'onepiece-secret-key-2026'
+app.secret_key = os.environ.get('BOUNTY_SECRET_KEY') or os.urandom(32)
 
 # ─────────────────────────── DB INIT ──────────────────────────────
 
@@ -1202,5 +1202,10 @@ def compare_output(actual, expected, language):
 
 # ─────────────────────────── RUN ──────────────────────────────
 
+# BEGIN BOUNTY_ENGINE_V2
+import bounty_engine
+bounty_engine.install(app, get_db, run_code, compare_outputs, classify_error, evaluate_html)
+# END BOUNTY_ENGINE_V2
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='127.0.0.1', port=int(os.environ.get('BOUNTY_PORT', '5000')), debug=False, use_reloader=False)

@@ -485,6 +485,15 @@
 
     .hidden { display: none !important; }
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bounty-refresh.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bc-trade-winds.css') }}" data-bc-typography="v2">
+<style id="bounty-game-feedback-v2">
+/* BEGIN BOUNTY_GAME_FEEDBACK_V2 */
+#result-display {max-height: 190px; overflow-y: auto; overflow-wrap:anywhere;}
+#quiz-panel #code-editor {font-family:Consolas,'Courier New',monospace !important;}
+/* END BOUNTY_GAME_FEEDBACK_V2 */
+</style>
+<link rel="stylesheet" href="/static/css/bounty_submission.css" data-bounty-submission="1">
 </head>
 <body>
 
@@ -918,15 +927,18 @@
           level:           currentStage,
           question_number: currentLevelIndex + 1,
           code:            code,
-          expected_output: q ? q.expected_output : '',
-          language:        q ? q.language : GAME_CONFIG.courseLanguage
         })
       });
       const data = await resp.json();
+      if (!resp.ok) {
+        showResult('⚠️ ' + (data.error || 'Could not check your answer.'), 'error');
+        btn.disabled = false;
+        return;
+      }
 
       if (data.correct) {
         sessionStorage.setItem('bounty_updated', '1');
-        showResult('✅ Correct! Great job, Captain!', 'success');
+        showResult('✅ ' + (data.success_message || 'Correct! Next island unlocked!') + (data.output ? '\nOutput:\n' + data.output : ''), 'success');
         btn.disabled = true;
         // Display Continue button
         const continueBtn = document.getElementById('continue-btn');
@@ -937,6 +949,11 @@
           continueToNextLeg();
         }, 2200);
       } else {
+        if (data.error_type === 'configuration_error' || data.error_type === 'unsupported_language') {
+          showResult('⚙️ Runner not ready: ' + (data.error || 'Check server configuration.'), 'error');
+          btn.disabled = false;
+          return;
+        }
         hearts--;
         errorCount++;
         updateHeartsDisplay();
@@ -1107,30 +1124,35 @@
   /* ──────────────────────────────────────────────────────────
      ROTATE QUESTION
   ────────────────────────────────────────────────────────── */
-  function rotateQuestion() {
-    fetch('/api/get_questions', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        course_id: GAME_CONFIG.courseId,
-        level:     currentStage
-      })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.questions && data.questions[currentLevelIndex]) {
-        if (!sessionQuestions[currentStage]) sessionQuestions[currentStage] = [];
-        sessionQuestions[currentStage][currentLevelIndex] = data.questions[currentLevelIndex];
-        document.getElementById('question-text').textContent =
-          sessionQuestions[currentStage][currentLevelIndex].question_text;
+  async function rotateQuestion() {
+    const out = document.getElementById('result-display');
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/api/get_questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id: GAME_CONFIG.courseId,
+          level: currentStage,
+          question_number: currentLevelIndex + 1
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.question) {
+        throw new Error(data.error || 'Unable to load another question.');
       }
-    })
-    .catch(() => {});
+      if (!sessionQuestions[currentStage]) sessionQuestions[currentStage] = [];
+      sessionQuestions[currentStage][currentLevelIndex] = data.question;
+      document.getElementById('question-text').textContent = data.question.question_text;
+      document.getElementById('code-editor').value = '';
+      if (out) out.style.display = 'none';
+    } catch (err) {
+      showResult('Could not get a new question: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   }
-
-  /* ──────────────────────────────────────────────────────────
-     UI HELPERS
-  ────────────────────────────────────────────────────────── */
   function updateHeartsDisplay() {
     const h = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 5 - hearts));
     document.getElementById('hearts-display').textContent = h;
