@@ -100,9 +100,16 @@ def get_db():
 
 init_db()
 
-# ─────────────────────────── AUTH ROUTES ──────────────────────────────
+# ─────────────────────────── ENTRY & AUTH ROUTES ──────────────────────
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
+@app.route('/start')
+def start():
+    username = session.get('username', '')
+    return render_template('start.html', username=username)
+
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html')
@@ -130,7 +137,7 @@ def login():
     session['user_id'] = user['id']
     session['username'] = user['username']
 
-    return redirect(url_for('start'))
+    return redirect(url_for('home'))
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -182,7 +189,7 @@ def signup():
         session['user_id'] = user_id
         session['username'] = username
 
-        return redirect(url_for('start'))
+        return redirect(url_for('home'))
 
     except Exception as e:
         conn.close()
@@ -196,13 +203,6 @@ def logout():
 
 
 # ─────────────────────────── MAIN PAGES ──────────────────────────────
-
-@app.route('/start')
-def start():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return render_template('start.html', username=session['username'])
-
 
 @app.route('/home')
 def home():
@@ -500,13 +500,14 @@ def api_submit_answer():
                      completed = ?, bounty_earned = bounty_earned + ?, last_updated = CURRENT_TIMESTAMP
                      WHERE user_id = ? AND course_id = ? AND completed = 0''',
                   (next_level, next_q, completed, bounty_gain, user_id, course_id))
+        rows_affected = c.rowcount
 
         # Update total bounty
         c.execute('UPDATE users SET total_bounty = total_bounty + ? WHERE id = ?',
                   (bounty_gain, user_id))
         session['bounty_updated'] = True
 
-        if completed:
+        if completed and rows_affected > 0:
             # Save bounty record
             c.execute('SELECT name FROM courses WHERE id = ?', (course_id,))
             course = c.fetchone()
@@ -517,7 +518,7 @@ def api_submit_answer():
 
             c.execute('''INSERT INTO bounty_records (user_id, course_id, course_name, bounty)
                          VALUES (?, ?, ?, ?)''',
-                      (user_id, course_id, course['name'] if course else course_id, total_bounty + bounty_gain))
+                      (user_id, course_id, course['name'] if course else course_id, total_bounty))
 
         conn.commit()
         conn.close()
@@ -609,19 +610,22 @@ def api_complete_course():
     c.execute('''UPDATE progress SET completed = 1, last_updated = CURRENT_TIMESTAMP
                  WHERE user_id = ? AND course_id = ? AND completed = 0''',
               (user_id, course_id))
+    was_uncompleted = (c.rowcount > 0)
 
-    c.execute('SELECT name FROM courses WHERE id = ?', (course_id,))
-    course = c.fetchone()
+    # Only insert/record if this completion was not already processed
+    if was_uncompleted:
+        c.execute('SELECT name FROM courses WHERE id = ?', (course_id,))
+        course = c.fetchone()
 
-    c.execute('''SELECT bounty_earned FROM progress WHERE user_id = ? AND course_id = ?
-                 ORDER BY last_updated DESC LIMIT 1''', (user_id, course_id))
-    prog = c.fetchone()
-    bounty = prog['bounty_earned'] if prog else 0
+        c.execute('''SELECT bounty_earned FROM progress WHERE user_id = ? AND course_id = ?
+                     ORDER BY last_updated DESC LIMIT 1''', (user_id, course_id))
+        prog = c.fetchone()
+        bounty = prog['bounty_earned'] if prog else 0
 
-    # Insert/update bounty record
-    c.execute('''INSERT INTO bounty_records (user_id, course_id, course_name, bounty)
-                 VALUES (?, ?, ?, ?)''',
-              (user_id, course_id, course['name'] if course else course_id, bounty))
+        # Insert/update bounty record
+        c.execute('''INSERT INTO bounty_records (user_id, course_id, course_name, bounty)
+                     VALUES (?, ?, ?, ?)''',
+                  (user_id, course_id, course['name'] if course else course_id, bounty))
 
     conn.commit()
     conn.close()
@@ -672,6 +676,44 @@ def api_course_history():
     return jsonify({'ongoing': ongoing, 'completed': completed})
 
 
+def deduplicate_bounty_records(records):
+    """
+    Ensure each distinct course completion has at most one bounty record.
+    If multiple records exist within 60 seconds of each other for the same course run,
+    keep only the single correct earned record.
+    """
+    if not records or len(records) <= 1:
+        return records
+
+    sorted_recs = sorted(records, key=lambda r: (str(r.get('completed_at') or ''), r.get('id', 0)))
+    deduped = []
+    for r in sorted_recs:
+        if not deduped:
+            deduped.append(r)
+            continue
+        last = deduped[-1]
+        is_same_course = (
+            r.get('course_id') == last.get('course_id') or
+            r.get('course_name') == last.get('course_name')
+        )
+        diff = 999999
+        try:
+            t_curr = datetime.strptime(str(r.get('completed_at') or '')[:19], '%Y-%m-%d %H:%M:%S')
+            t_last = datetime.strptime(str(last.get('completed_at') or '')[:19], '%Y-%m-%d %H:%M:%S')
+            diff = abs((t_curr - t_last).total_seconds())
+        except Exception:
+            pass
+
+        if is_same_course and diff <= 60:
+            # Duplicate from the same completion session
+            if (last.get('bounty', 0) - r.get('bounty', 0)) == 15_000_000:
+                deduped[-1] = r
+        else:
+            deduped.append(r)
+
+    return deduped
+
+
 @app.route('/api/bounty_records')
 def api_bounty_records():
     if 'user_id' not in session:
@@ -683,7 +725,7 @@ def api_bounty_records():
 
     c.execute('''SELECT course_name, bounty, completed_at FROM bounty_records
                  WHERE user_id = ? ORDER BY bounty DESC''', (user_id,))
-    records = [dict(r) for r in c.fetchall()]
+    records = deduplicate_bounty_records([dict(r) for r in c.fetchall()])
 
     c.execute('SELECT total_bounty FROM users WHERE id = ?', (user_id,))
     user = c.fetchone()
@@ -808,6 +850,7 @@ def api_bounty_collection():
                      ORDER BY bounty DESC, completed_at DESC, id DESC''',
                   (user_id, cid, cfullname))
         raw_rows = [dict(r) for r in c.fetchall()]
+        raw_rows = deduplicate_bounty_records(raw_rows)
         total_plays = len(raw_rows)
 
         posters = select_top_bounty_posters(raw_rows)

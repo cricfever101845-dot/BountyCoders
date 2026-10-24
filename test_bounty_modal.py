@@ -1,6 +1,6 @@
 import unittest
 import json
-from app import app, select_top_bounty_posters
+from app import app, select_top_bounty_posters, get_db
 
 class TestBountyCollection(unittest.TestCase):
     def setUp(self):
@@ -89,6 +89,55 @@ class TestBountyCollection(unittest.TestCase):
         self.assertIn('bounty_template.png', content)
         self.assertIn('prevBountyPoster()', content)
         self.assertIn('nextBountyPoster()', content)
+
+    def test_single_bounty_per_course_completion(self):
+        # Using a dedicated test user (e.g. user_id = 999)
+        test_uid = 999
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM bounty_records WHERE user_id = ?', (test_uid,))
+        c.execute('DELETE FROM progress WHERE user_id = ?', (test_uid,))
+        c.execute('INSERT OR IGNORE INTO users (id, username, email, password, total_bounty) VALUES (?, ?, ?, ?, 0)',
+                  (test_uid, 'solopirate', 'solopirate@test.com', 'dummy'))
+        conn.commit()
+        conn.close()
+
+        with self.client.session_transaction() as sess:
+            sess['user_id'] = test_uid
+            sess['username'] = 'solopirate'
+
+        # Start session for course 104 (C)
+        self.client.post('/api/start_session', json={'course_id': '104', 'force_new': True})
+
+        # Answer question 15 (hard q 5)
+        self.client.post('/api/submit_answer', json={
+            'course_id': '104',
+            'level': 'hard',
+            'question_number': 5,
+            'code': '#include <stdio.h>\nint main(){printf("OK");return 0;}',
+            'expected_output': 'OK',
+            'language': 'C'
+        })
+
+        # Client also invokes api_complete_course upon animation finish
+        self.client.post('/api/complete_course', json={'course_id': '104'})
+
+        # Verify only 1 bounty poster is returned
+        resp = self.client.get('/api/bounty_collection?course=c')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        c_posters = data['course']['posters']
+        self.assertEqual(len(c_posters), 1)
+        self.assertEqual(data['course']['total_plays'], 1)
+
+        # Clean up
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM bounty_records WHERE user_id = ?', (test_uid,))
+        c.execute('DELETE FROM progress WHERE user_id = ?', (test_uid,))
+        c.execute('DELETE FROM users WHERE id = ?', (test_uid,))
+        conn.commit()
+        conn.close()
 
 if __name__ == '__main__':
     unittest.main()

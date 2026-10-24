@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bounty Coders – Welcome, {{ username }}</title>
+    <title>Bounty Coders{% if username %} – Welcome, {{ username }}{% endif %}</title>
     <style>
         * {
             margin: 0;
@@ -42,8 +42,8 @@
             pointer-events: none;
         }
 
-        /* ── "Touch to start" label ── */
-        #start-label {
+        /* ── Start Button: Blue border, yellow inside ── */
+        #start-btn, #start-label {
             position: absolute;
             bottom: 15%;
             left: 50%;
@@ -51,43 +51,50 @@
             white-space: nowrap;
             z-index: 10;
 
-            color: #ffffff;
-            font-size: 32px;
-            font-weight: bold;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            text-decoration: underline;
-            text-shadow:
-                0 0 8px  rgba(255, 255, 255, 0.9),
-                0 0 20px rgba(255, 255, 255, 0.6),
-                0 0 40px rgba(255, 255, 255, 0.3);
-
+            background-color: #FFD700;
+            color: #002288;
+            border: 4px solid #0033aa;
+            border-radius: 50px;
+            padding: 16px 52px;
+            font-size: 26px;
+            font-weight: 900;
+            font-family: 'Arial Black', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-decoration: none;
+            letter-spacing: 2px;
+            text-transform: uppercase;
             cursor: pointer;
             user-select: none;
-            transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.2s ease;
+            outline: none;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.65), 0 4px 16px rgba(0, 34, 136, 0.35);
+            transition: all 0.3s ease;
             animation: pulse 2s infinite ease-in-out;
         }
 
         @keyframes pulse {
             0%, 100% {
                 transform: translateX(-50%) scale(1);
-                opacity: 1;
+                box-shadow: 0 0 25px rgba(255, 215, 0, 0.65), 0 4px 16px rgba(0, 34, 136, 0.35);
             }
             50% {
                 transform: translateX(-50%) scale(1.05);
-                opacity: 0.85;
+                box-shadow: 0 0 42px rgba(255, 215, 0, 0.9), 0 6px 22px rgba(0, 34, 136, 0.45);
             }
         }
 
-        #start-label:hover {
-            color: #FFD700;
-            text-shadow:
-                0 0 8px  rgba(255, 215, 0, 0.9),
-                0 0 20px rgba(255, 215, 0, 0.6),
-                0 0 45px rgba(255, 215, 0, 0.4);
+        #start-btn:hover, #start-label:hover {
+            background-color: #FFE44D;
+            border-color: #001f66;
+            color: #001f66;
+            box-shadow: 0 0 45px rgba(255, 215, 0, 0.95), 0 8px 25px rgba(0, 34, 136, 0.5);
+            transform: translateX(-50%) scale(1.08);
+        }
+
+        #start-btn:active, #start-label:active {
+            transform: translateX(-50%) scale(0.98);
         }
     </style>
 </head>
-<body onclick="window.location.href='/home'">
+<body onclick="window.location.href='{{ url_for('login') }}'">
 
     <!-- Full-screen background video -->
     <video id="bg-video"
@@ -103,8 +110,8 @@
     <!-- Overlay -->
     <div class="video-overlay"></div>
 
-    <!-- Touch to start -->
-    <span id="start-label">Touch to start</span>
+    <!-- Start Button (Blue border, yellow inside) -->
+    <button id="start-btn" class="start-btn" onclick="event.stopPropagation(); window.location.href='{{ url_for('login') }}'">Touch to start</button>
 
     <script>
         const video = document.getElementById('bg-video');

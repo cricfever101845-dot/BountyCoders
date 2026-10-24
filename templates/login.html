@@ -150,7 +150,7 @@
       <div class="error-msg">{{ error }}</div>
     {% endif %}
 
-    <form method="POST" action="/">
+    <form method="POST" action="{{ url_for('login') }}">
       <input
         type="text"
         name="email"
