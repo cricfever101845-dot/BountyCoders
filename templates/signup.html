@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bounty Coders – Sign Up</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── Background Video ── */
+    #bg-video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 400px;
+      padding: 40px;
+      background: rgba(173, 216, 230, 0.55);
+      border: 3px solid navy;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 80, 0.35), 0 2px 8px rgba(0,0,0,0.18);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* ── Title ── */
+    .card h1 {
+      text-align: center;
+      color: navy;
+      font-weight: 900;
+      font-size: 2rem;
+      letter-spacing: 3px;
+      margin-bottom: 28px;
+      text-shadow: 1px 1px 0 rgba(255,255,255,0.4);
+    }
+
+    /* ── Inputs ── */
+    .card input[type="text"],
+    .card input[type="email"],
+    .card input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid navy;
+      background: rgba(255, 255, 255, 0.7);
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: #1a1a2e;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card input:focus {
+      border-color: #0044aa;
+      box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.18);
+    }
+
+    .card input::placeholder {
+      color: #5566aa;
+      opacity: 0.85;
+    }
+
+    /* ── Button ── */
+    .btn-main {
+      width: 100%;
+      padding: 13px;
+      background: navy;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .btn-main:hover {
+      background: #ffd700;
+      color: navy;
+      box-shadow: 0 0 18px 4px rgba(255, 215, 0, 0.65), 0 0 6px 1px rgba(255,200,0,0.4);
+    }
+
+    /* ── Error ── */
+    .error-msg {
+      color: #cc0000;
+      background: rgba(255, 200, 200, 0.55);
+      border: 1px solid #cc0000;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* ── Footer link ── */
+    .card-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: navy;
+    }
+
+    .card-footer a {
+      color: navy;
+      font-weight: 700;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+
+    .card-footer a:hover {
+      color: #ffd700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Video -->
+  <video id="bg-video" autoplay muted loop playsinline>
+    <source src="{{ url_for('static', filename='media/background.mp4') }}" type="video/mp4" />
+  </video>
+
+  <!-- Signup Card -->
+  <div class="card">
+    <h1>BOUNTY CODERS</h1>
+
+    {% if error %}
+      <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/signup">
+      <input
+        type="text"
+        name="username"
+        placeholder="Choose username"
+        autocomplete="username"
+        required
+      />
+      <input
+        type="email"
+        name="email"
+        placeholder="Enter email"
+        autocomplete="email"
+        required
+      />
+      <input
+        type="password"
+        name="password"
+        placeholder="Create password"
+        autocomplete="new-password"
+        required
+      />
+      <input
+        type="password"
+        name="confirm_password"
+        placeholder="Confirm password"
+        autocomplete="new-password"
+        required
+      />
+      <button type="submit" class="btn-main">SIGN UP</button>
+    </form>
+
+    <div class="card-footer">
+      Already have an account? <a href="{{ url_for('login') }}">Login</a>
+    </div>
+  </div>
+
+</body>
+</html>

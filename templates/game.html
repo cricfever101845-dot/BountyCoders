@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bounty Coders – {{ course_name }}</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      background: #020b18;
+    }
+
+    /* ── 1. MAP VIEWPORT & THOUSAND SUNNY SYSTEM (z-index 0) ─── */
+    #map-viewport {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      background: radial-gradient(circle at center, #0a1f3d 0%, #030a16 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #map-stage {
+      position: relative;
+      /* Exactly 16:9 aspect ratio matching 1600x900 maps */
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+    }
+    #map-image {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: fill;
+      display: block;
+      user-select: none;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* Ship Overlay */
+    #ship-container {
+      position: absolute;
+      left: 16.25%;
+      top: 53.33%;
+      width: 5.6%;
+      aspect-ratio: 818 / 643;
+      transform: translate(-50%, -70%);
+      transform-origin: center 70%;
+      z-index: 10;
+      pointer-events: none;
+      transition: left 2.8s cubic-bezier(0.35, 0.05, 0.25, 1),
+                  top 2.8s cubic-bezier(0.35, 0.05, 0.25, 1),
+                  transform 0.4s ease;
+    }
+    #ship-bobbing {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      animation: shipBob 2.8s ease-in-out infinite alternate;
+    }
+    @keyframes shipBob {
+      0% {
+        transform: translateY(0px) rotate(-1.5deg);
+      }
+      50% {
+        transform: translateY(-4px) rotate(1deg);
+      }
+      100% {
+        transform: translateY(2px) rotate(-0.5deg);
+      }
+    }
+    #ship-sprite {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 8px 12px rgba(0, 15, 45, 0.7));
+    }
+    #ship-wake {
+      position: absolute;
+      bottom: -4px;
+      left: 10%;
+      width: 80%;
+      height: 10px;
+      background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.5) 0%, rgba(135, 206, 250, 0.25) 50%, transparent 80%);
+      border-radius: 50%;
+      opacity: 0.6;
+      animation: wakePulse 2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes wakePulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.4; }
+      50% { transform: scale(1.15); opacity: 0.75; }
+    }
+
+    /* ── 2. TOP UI BAR (z-index 150) ────────────────────────── */
+    #top-bar {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      z-index: 150;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+    }
+    #top-bar .username {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    }
+    #hearts-display {
+      font-size: 28px;
+      letter-spacing: 3px;
+      filter: drop-shadow(0 0 4px rgba(255,80,80,0.6));
+    }
+    #gear-btn {
+      font-size: 28px;
+      cursor: pointer;
+      color: #fff;
+      background: none;
+      border: none;
+      transition: transform 0.25s ease;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+    }
+    #gear-btn:hover { transform: rotate(60deg); }
+
+    /* ── GEAR POPUP (z-index 300) ────────────────────────────── */
+    #gear-popup {
+      position: fixed;
+      top: 60px; right: 20px;
+      z-index: 300;
+      background: rgba(173, 216, 230, 0.93);
+      border: 2px solid navy;
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: none;
+      min-width: 140px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+    }
+    #gear-popup button {
+      display: block;
+      width: 100%;
+      padding: 8px 14px;
+      background: crimson;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    #gear-popup button:hover { background: #a00; }
+    #gear-popup button.btn-home { background: navy; }
+    #gear-popup button.btn-home:hover { background: #001f5e; }
+    #gear-popup button:not(:last-child) { margin-bottom: 8px; }
+
+    /* ── 3. CONTINUE MODAL (z-index 500) ─────────────────────── */
+    #continue-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 500;
+      background: rgba(0, 0, 0, 0.82);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #continue-modal .modal-box {
+      background: rgba(173, 216, 230, 0.95);
+      border: 3px solid navy;
+      border-radius: 16px;
+      padding: 36px 40px;
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    #continue-modal .modal-icon {
+      font-size: 52px;
+      margin-bottom: 10px;
+    }
+    #continue-modal h2 {
+      font-size: 22px;
+      color: navy;
+      margin-bottom: 8px;
+    }
+    #continue-modal p {
+      font-size: 16px;
+      color: #1a2a4a;
+      margin-bottom: 26px;
+      line-height: 1.5;
+    }
+    .modal-btn-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .btn-yes {
+      background: navy;
+      color: #fff;
+      border: none;
+      padding: 11px 34px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-yes:hover { background: #001f5e; transform: translateY(-2px); }
+    .btn-no {
+      background: crimson;
+      color: #fff;
+      border: none;
+      padding: 11px 34px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-no:hover { background: #8b0000; transform: translateY(-2px); }
+
+    /* ── 4. TRANSITION VIDEO OVERLAY (z-index 200) ───────────── */
+    #transition-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 200;
+      display: none;
+      background: #000;
+    }
+    #transition-video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ── 5. QUIZ OVERLAY (z-index 100) ───────────────────────── */
+    #quiz-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 100;
+      display: none;
+    }
+
+    #quiz-bg-video {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    #quiz-panel {
+      position: absolute;
+      top: calc(50% + 24px); left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      width: min(90vw, 700px);
+      max-height: calc(100vh - 75px);
+      overflow-y: auto;
+      border-radius: 20px;
+      border-width: 3px;
+      border-style: solid;
+      padding: 30px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.3) transparent;
+    }
+    #quiz-panel::-webkit-scrollbar { width: 6px; }
+    #quiz-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #level-display {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+      letter-spacing: 0.5px;
+    }
+    #quiz-hearts {
+      font-size: 22px;
+      letter-spacing: 2px;
+      filter: drop-shadow(0 0 3px rgba(255,80,80,0.6));
+    }
+
+    #question-text {
+      font-size: 17px;
+      color: #fff;
+      margin-bottom: 15px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    }
+
+    .quiz-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.35);
+      margin: 14px 0;
+    }
+
+    #code-editor {
+      width: 100%;
+      height: 250px;
+      font-family: 'Courier New', Consolas, monospace;
+      font-size: 14px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      border-radius: 8px;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+      transition: box-shadow 0.2s;
+      line-height: 1.5;
+    }
+    #code-editor:focus {
+      box-shadow: 0 0 10px rgba(0,255,0,0.35);
+    }
+
+    .submit-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    #submit-btn {
+      background: #22c55e;
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s, transform 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    #submit-btn:hover { background: #16a34a; transform: translateY(-2px); }
+    #submit-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+    }
+    #continue-btn {
+      display: none;
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s, transform 0.15s;
+      animation: continuePulse 1.5s infinite;
+    }
+    #continue-btn:hover { background: #0369a1; transform: translateY(-2px); }
+    @keyframes continuePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+
+    #submit-btn .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.5);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error-count {
+      font-size: 14px;
+      color: rgba(255,255,255,0.85);
+      font-weight: 600;
+    }
+
+    #result-display {
+      display: none;
+      margin-top: 12px;
+      border-radius: 8px;
+      padding: 12px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── LOST OVERLAY ────────────────────────────────────────── */
+    #lost-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(139, 0, 0, 0.94);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      z-index: 20;
+      padding: 30px;
+      text-align: center;
+    }
+    #lost-overlay .lost-skull {
+      font-size: 56px;
+      margin-bottom: 10px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+    #lost-overlay h2 {
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+      margin-bottom: 8px;
+    }
+    #lost-error-msg {
+      color: rgba(255,255,255,0.88);
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 15px 0;
+      text-align: left;
+      background: rgba(0,0,0,0.35);
+      border-radius: 8px;
+      padding: 10px 14px;
+      white-space: pre-wrap;
+      width: 100%;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
+    }
+    #lost-error-msg::-webkit-scrollbar { width: 5px; }
+    #lost-error-msg::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 3px; }
+    #try-again-btn {
+      background: gold;
+      color: #000;
+      border: none;
+      padding: 13px 42px;
+      font-size: 18px;
+      font-weight: 800;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: background 0.2s, transform 0.15s;
+      margin-top: 6px;
+    }
+    #try-again-btn:hover { background: #e6c200; transform: translateY(-2px); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════
+       1. MAP VIEWPORT & THOUSAND SUNNY SYSTEM
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="map-viewport">
+    <div id="map-stage">
+      <img id="map-image" src="/static/media/easy.jpeg" alt="One Piece Map" />
+      <div id="ship-container">
+        <div id="ship-bobbing">
+          <img id="ship-sprite" src="/static/media/sunny.png" alt="Thousand Sunny" />
+          <div id="ship-wake"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       2. TOP UI BAR
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="top-bar">
+    <span class="username">⚓ {{ username }}</span>
+    <div id="hearts-display">❤️❤️❤️❤️❤️</div>
+    <button id="gear-btn" title="Settings">⚙</button>
+  </div>
+
+  <!-- GEAR POPUP -->
+  <div id="gear-popup">
+    <button onclick="quitGame()">🚪 Quit</button>
+    <button class="btn-home" onclick="goHome()">🏠 Home Page</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       3. CONTINUE MODAL
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="continue-modal">
+    <div class="modal-box">
+      <div class="modal-icon">🏴‍☠️</div>
+      <h2>Welcome Back, Captain!</h2>
+      <p>Do you want to continue your last game?<br/>
+        <small style="color:#3a4a6a;">Your progress has been saved.</small>
+      </p>
+      <div class="modal-btn-row">
+        <button class="btn-yes" onclick="handleContinue(true)">⚓ Yes</button>
+        <button class="btn-no"  onclick="handleContinue(false)">💀 No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       4. TRANSITION VIDEO OVERLAY
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="transition-overlay">
+    <video id="transition-video" playsinline></video>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       5. QUIZ OVERLAY
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="quiz-overlay">
+    <video id="quiz-bg-video"
+           src="/static/media/qiuz background.mp4"
+           autoplay loop muted playsinline
+           style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;">
+    </video>
+
+    <!-- Quiz Panel -->
+    <div id="quiz-panel">
+      <!-- LOST OVERLAY -->
+      <div id="lost-overlay">
+        <div class="lost-skull">💀</div>
+        <h2>You Lost!</h2>
+        <div id="lost-error-msg"></div>
+        <button id="try-again-btn" onclick="tryAgain()">🔄 Try Again</button>
+      </div>
+
+      <!-- Panel Header -->
+      <div class="panel-header">
+        <span id="level-display">Level 1 of 15</span>
+        <div id="quiz-hearts">❤️❤️❤️❤️❤️</div>
+      </div>
+
+      <!-- Question -->
+      <div id="question-text">Loading question…</div>
+
+      <hr class="quiz-divider" />
+
+      <!-- Code Editor -->
+      <textarea id="code-editor"
+                spellcheck="false"
+                autocorrect="off"
+                autocapitalize="off"
+                placeholder="# Write your code here…"></textarea>
+
+      <!-- Submit Row -->
+      <div class="submit-row">
+        <button id="submit-btn" onclick="submitAnswer()">
+          <span class="spinner" id="submit-spinner"></span>
+          ▶ Run &amp; Submit
+        </button>
+        <button id="continue-btn" onclick="continueToNextLeg()">
+          ⚓ Continue Journey ➔
+        </button>
+        <span id="error-count">Errors: 0/5</span>
+      </div>
+
+      <!-- Result Display -->
+      <div id="result-display"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════════════════════════ -->
+  <script>
+  /* ──────────────────────────────────────────────────────────
+     GAME CONFIG
+  ────────────────────────────────────────────────────────── */
+  const GAME_CONFIG = {
+    courseId:       '{{ course_id }}',
+    courseName:     '{{ course_name }}',
+    courseLanguage: '{{ course_language }}',
+
+    maps: {
+      easy:   '/static/media/easy.jpeg',
+      medium: '/static/media/medium.jpeg',
+      hard:   '/static/media/hard.jpeg'
+    },
+
+    videos: {
+      grandline: '/static/media/grandline.mp4',
+      newworld:  '/static/media/new world.mp4',
+      quizBg:    '/static/media/qiuz background.mp4'
+    },
+
+    // Percentage coordinates (left %, top %) on 1600x900 maps
+    // Ship docks in the water beside each island dock, keeping the badge visible
+    coordinates: {
+      easy: {
+        start: { x: 16.25, y: 53.33 },
+        1:     { x: 23.13, y: 56.11 }, // Island 1 (badge at 25.94%, 51.67%)
+        2:     { x: 34.38, y: 38.89 }, // Island 2 (badge at 37.25%, 36.11%)
+        3:     { x: 43.44, y: 64.44 }, // Island 3 (badge at 46.63%, 62.22%)
+        4:     { x: 57.81, y: 49.44 }, // Island 4 (badge at 60.75%, 46.67%)
+        5:     { x: 68.44, y: 68.89 }, // Island 5 (badge at 71.38%, 65.56%)
+        exit:  { x: 88.75, y: 57.78 }  // Towards Grand Line
+      },
+      medium: {
+        start: { x: 13.75, y: 55.56 },
+        6:     { x: 24.06, y: 59.44 }, // Island 6 (badge at 26.88%, 56.67%)
+        7:     { x: 35.94, y: 37.22 }, // Island 7 (badge at 38.75%, 34.44%)
+        8:     { x: 46.56, y: 63.89 }, // Island 8 (badge at 49.38%, 60.56%)
+        9:     { x: 60.31, y: 41.11 }, // Island 9 (badge at 63.13%, 38.33%)
+        10:    { x: 69.69, y: 72.22 }, // Island 10 (badge at 72.50%, 68.89%)
+        exit:  { x: 88.75, y: 60.00 }  // Towards Red Line
+      },
+      hard: {
+        start: { x: 12.50, y: 54.44 },
+        11:    { x: 20.94, y: 58.89 }, // Island 11 (badge at 23.44%, 55.56%)
+        12:    { x: 33.13, y: 39.44 }, // Island 12 (badge at 35.94%, 36.67%)
+        13:    { x: 44.06, y: 65.00 }, // Island 13 (badge at 46.88%, 61.67%)
+        14:    { x: 58.44, y: 46.67 }, // Island 14 (badge at 61.25%, 43.89%)
+        15:    { x: 66.25, y: 76.67 }, // Island 15 (badge at 69.06%, 73.33%)
+        exit:  { x: 86.25, y: 47.78 }  // Towards Laughtale
+      }
+    },
+
+    travelDuration: 2800, // Milliseconds per leg
+
+    panelColors: {
+      easy:   { bg: 'rgba(40,120,200,0.85)',  border: '#003d82' },
+      medium: { bg: 'rgba(230,184,0,0.85)',   border: '#b8860b' },
+      hard:   { bg: 'rgba(214,40,40,0.85)',   border: '#8b0000' }
+    },
+
+    bountyGain:    { easy: 5000000,  medium: 10000000, hard: 15000000 },
+    bountyPenalty: { easy: 2000000,  medium: 5000000,  hard: 8000000  }
+  };
+
+  /* ──────────────────────────────────────────────────────────
+     GAME STATE
+  ────────────────────────────────────────────────────────── */
+  let currentStage        = 'easy';
+  let currentLevelIndex   = 0;       // 0-4 within stage
+  let currentLevelNumber  = 1;       // 1-15 overall
+  let hearts              = 5;
+  let errorCount          = 0;
+  let sessionQuestions    = {};
+  let isSailing           = false;
+  let autoContinueTimer   = null;
+
+  /* ──────────────────────────────────────────────────────────
+     DOM READY
+  ────────────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    const hasSave = {{ 'true' if has_save else 'false' }};
+
+    if (hasSave) {
+      document.getElementById('continue-modal').style.display = 'flex';
+    } else {
+      startSession(true);
+    }
+
+    // Gear toggle
+    document.getElementById('gear-btn').onclick = (e) => {
+      e.stopPropagation();
+      const p = document.getElementById('gear-popup');
+      p.style.display = (p.style.display === 'none' || p.style.display === '')
+        ? 'block' : 'none';
+    };
+
+    // Close gear popup when clicking elsewhere
+    document.addEventListener('click', (e) => {
+      const popup = document.getElementById('gear-popup');
+      const gearBtn = document.getElementById('gear-btn');
+      if (!popup.contains(e.target) && e.target !== gearBtn) {
+        popup.style.display = 'none';
+      }
+    });
+
+    // Tab key support inside code editor
+    document.getElementById('code-editor').addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const ta = e.target;
+        const start = ta.selectionStart;
+        const end   = ta.selectionEnd;
+        ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+        ta.selectionStart = ta.selectionEnd = start + 4;
+      }
+    });
+  });
+
+  /* ──────────────────────────────────────────────────────────
+     CONTINUE MODAL HANDLER
+  ────────────────────────────────────────────────────────── */
+  function handleContinue(yes) {
+    document.getElementById('continue-modal').style.display = 'none';
+    startSession(!yes);  // force_new = !yes
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     START SESSION
+  ────────────────────────────────────────────────────────── */
+  async function startSession(forceNew) {
+    try {
+      const resp = await fetch('/api/start_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id: GAME_CONFIG.courseId,
+          force_new: forceNew
+        })
+      });
+      const data = await resp.json();
+      sessionQuestions = data.session_questions || {};
+
+      if (data.resumed) {
+        currentStage       = data.current_level || 'easy';
+        currentLevelIndex  = ((data.current_question_number || 1) - 1) % 5;
+        currentLevelNumber = stageToBase(currentStage) + currentLevelIndex;
+
+        // Load stage map image
+        document.getElementById('map-image').src = GAME_CONFIG.maps[currentStage];
+
+        // Place ship at this island and open quiz
+        placeShip(currentStage, currentLevelNumber);
+        showQuiz();
+      } else {
+        currentStage       = 'easy';
+        currentLevelIndex  = 0;
+        currentLevelNumber = 1;
+
+        // Load East Blue map
+        document.getElementById('map-image').src = GAME_CONFIG.maps.easy;
+
+        // Place ship at coastal start pier
+        placeShip('easy', 'start');
+
+        // Sail smoothly from start to Level 1!
+        await sailShip('easy', 'start', 1);
+
+        // Open Level 1 quiz
+        showQuiz();
+      }
+    } catch (err) {
+      console.error('Failed to start session:', err);
+      currentStage       = 'easy';
+      currentLevelIndex  = 0;
+      currentLevelNumber = 1;
+      document.getElementById('map-image').src = GAME_CONFIG.maps.easy;
+      placeShip('easy', 'start');
+      await sailShip('easy', 'start', 1);
+      showQuiz();
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     HELPERS
+  ────────────────────────────────────────────────────────── */
+  function stageToBase(stage) {
+    return { easy: 1, medium: 6, hard: 11 }[stage] || 1;
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     SHIP MOVEMENT & ANIMATION
+  ────────────────────────────────────────────────────────── */
+  function placeShip(stage, key) {
+    const coords = GAME_CONFIG.coordinates[stage];
+    if (!coords || !coords[key]) return;
+    const pt = coords[key];
+    const ship = document.getElementById('ship-container');
+    ship.style.transition = 'none';
+    ship.style.left = pt.x + '%';
+    ship.style.top = pt.y + '%';
+    ship.style.transform = 'translate(-50%, -70%) rotate(0deg)';
+    void ship.offsetHeight; // Force reflow
+  }
+
+  function sailShip(stage, fromKey, toKey) {
+    return new Promise(resolve => {
+      const coords = GAME_CONFIG.coordinates[stage];
+      if (!coords || !coords[toKey]) return resolve();
+
+      const toPt = coords[toKey];
+      const fromPt = fromKey ? coords[fromKey] : null;
+      const ship = document.getElementById('ship-container');
+
+      // Calculate tilt based on sailing direction
+      let angle = 0;
+      if (fromPt) {
+        const dy = toPt.y - fromPt.y;
+        angle = Math.max(-8, Math.min(8, dy * 0.35));
+      }
+
+      const duration = GAME_CONFIG.travelDuration;
+      ship.style.transition = `left ${duration}ms cubic-bezier(0.35, 0.05, 0.25, 1), top ${duration}ms cubic-bezier(0.35, 0.05, 0.25, 1), transform 0.4s ease`;
+      ship.style.left = toPt.x + '%';
+      ship.style.top = toPt.y + '%';
+      ship.style.transform = `translate(-50%, -70%) rotate(${angle}deg)`;
+
+      isSailing = true;
+      let finished = false;
+
+      function onArrival() {
+        if (finished) return;
+        finished = true;
+        ship.removeEventListener('transitionend', onTransitionEnd);
+        ship.style.transform = 'translate(-50%, -70%) rotate(0deg)';
+        isSailing = false;
+        resolve();
+      }
+
+      function onTransitionEnd(e) {
+        if (e.target === ship && (e.propertyName === 'left' || e.propertyName === 'top')) {
+          onArrival();
+        }
+      }
+
+      ship.addEventListener('transitionend', onTransitionEnd);
+      // Fallback timer ensures promise always resolves even if tab is minimized
+      setTimeout(onArrival, duration + 100);
+    });
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     SHOW QUIZ
+  ────────────────────────────────────────────────────────── */
+  function showQuiz() {
+    const panel  = document.getElementById('quiz-panel');
+    const colors = GAME_CONFIG.panelColors[currentStage];
+    panel.style.background   = colors.bg;
+    panel.style.borderColor  = colors.border;
+
+    // Populate question
+    const stageQs = sessionQuestions[currentStage];
+    if (stageQs && stageQs[currentLevelIndex]) {
+      document.getElementById('question-text').textContent =
+        stageQs[currentLevelIndex].question_text;
+    } else {
+      document.getElementById('question-text').textContent =
+        '⚠️ Question could not be loaded. Please check your connection.';
+    }
+
+    // Reset UI state
+    document.getElementById('code-editor').value        = '';
+    document.getElementById('result-display').style.display = 'none';
+    document.getElementById('lost-overlay').style.display  = 'none';
+    document.getElementById('submit-btn').disabled          = false;
+    document.getElementById('submit-btn').style.display     = 'flex';
+    document.getElementById('submit-spinner').style.display = 'none';
+    document.getElementById('continue-btn').style.display   = 'none';
+
+    hearts     = 5;
+    errorCount = 0;
+    updateHeartsDisplay();
+    updateLevelDisplay();
+    updateErrorCount();
+
+    // Show overlay & play background video
+    document.getElementById('quiz-overlay').style.display = 'block';
+    document.getElementById('quiz-bg-video').play().catch(() => {});
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     SUBMIT ANSWER
+  ────────────────────────────────────────────────────────── */
+  async function submitAnswer() {
+    const btn     = document.getElementById('submit-btn');
+    const spinner = document.getElementById('submit-spinner');
+    const code    = document.getElementById('code-editor').value.trim();
+
+    if (!code) {
+      showResult('⚠️ Please write some code before submitting.', 'error');
+      return;
+    }
+
+    btn.disabled          = true;
+    spinner.style.display = 'inline-block';
+
+    const stageQs = sessionQuestions[currentStage];
+    const q       = stageQs ? stageQs[currentLevelIndex] : null;
+
+    try {
+      const resp = await fetch('/api/submit_answer', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id:       GAME_CONFIG.courseId,
+          level:           currentStage,
+          question_number: currentLevelIndex + 1,
+          code:            code,
+          expected_output: q ? q.expected_output : '',
+          language:        q ? q.language : GAME_CONFIG.courseLanguage
+        })
+      });
+      const data = await resp.json();
+
+      if (data.correct) {
+        sessionStorage.setItem('bounty_updated', '1');
+        showResult('✅ Correct! Great job, Captain!', 'success');
+        btn.disabled = true;
+        // Display Continue button
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) continueBtn.style.display = 'inline-flex';
+
+        // Auto advance after 2.2 seconds if user does not click Continue
+        autoContinueTimer = setTimeout(() => {
+          continueToNextLeg();
+        }, 2200);
+      } else {
+        hearts--;
+        errorCount++;
+        updateHeartsDisplay();
+        updateErrorCount();
+
+        let errorLabel = '❌ Wrong answer.';
+        if (data.error_type === 'compilation_error') {
+          errorLabel = '🔧 Compilation Error.';
+        } else if (data.error_type === 'runtime_error') {
+          errorLabel = '💥 Runtime Error.';
+        } else if (data.error_type === 'timeout') {
+          errorLabel = '⏱️ Time Limit Exceeded.';
+        }
+
+        const errDetail = [
+          errorLabel,
+          data.expected !== undefined ? 'Expected: ' + data.expected : null,
+          data.output   !== undefined && data.output !== '' ? 'Got:      ' + data.output   : null,
+          data.error    ? 'Error:    ' + data.error : null,
+          data.comparison_detail ? 'Detail:   ' + data.comparison_detail : null
+        ].filter(Boolean).join('\n');
+
+        showResult(errDetail, 'error');
+
+        // Deduct bounty penalty
+        fetch('/api/lose_heart', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ course_id: GAME_CONFIG.courseId, level: currentStage })
+        }).catch(() => {});
+
+        btn.disabled = false;
+
+        if (hearts <= 0) {
+          showLostOverlay(data.error || 'All hearts lost! Check your code carefully.');
+        }
+      }
+    } catch (err) {
+      showResult('🌐 Network error. Please check your connection.', 'error');
+      btn.disabled = false;
+    } finally {
+      spinner.style.display = 'none';
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     CONTINUE JOURNEY TO NEXT LEG
+  ────────────────────────────────────────────────────────── */
+  async function continueToNextLeg() {
+    if (autoContinueTimer) {
+      clearTimeout(autoContinueTimer);
+      autoContinueTimer = null;
+    }
+    const continueBtn = document.getElementById('continue-btn');
+    if (continueBtn) continueBtn.style.display = 'none';
+
+    // Hide quiz overlay to return to map view
+    document.getElementById('quiz-overlay').style.display = 'none';
+
+    if (currentLevelIndex >= 4) {
+      // Current stage is complete!
+      if (currentStage === 'easy') {
+        // Sail to Grand Line exit
+        await sailShip('easy', 5, 'exit');
+        await playTransition('grandline', 'medium');
+      } else if (currentStage === 'medium') {
+        // Sail to Red Line exit
+        await sailShip('medium', 10, 'exit');
+        await playTransition('newworld', 'hard');
+      } else {
+        // Sail to Laughtale exit
+        await sailShip('hard', 15, 'exit');
+        await completeCourse();
+      }
+    } else {
+      // Advance to next level in current stage
+      const fromLevel = currentLevelNumber;
+      currentLevelIndex++;
+      currentLevelNumber++;
+      updateLevelDisplay();
+
+      // Sail ship from completed island to next island
+      await sailShip(currentStage, fromLevel, currentLevelNumber);
+
+      // Reached next island: open quiz
+      showQuiz();
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     TRANSITION VIDEO
+  ────────────────────────────────────────────────────────── */
+  async function playTransition(transKey, nextStage) {
+    const overlay = document.getElementById('transition-overlay');
+    const vid     = document.getElementById('transition-video');
+
+    overlay.style.display = 'block';
+    vid.src = GAME_CONFIG.videos[transKey];
+
+    await vid.play().catch(() => {});
+
+    await new Promise(resolve => {
+      vid.onended = resolve;
+      setTimeout(resolve, 60000);
+    });
+
+    overlay.style.display = 'none';
+
+    currentStage       = nextStage;
+    currentLevelIndex  = 0;
+    currentLevelNumber = stageToBase(nextStage);
+    updateLevelDisplay();
+
+    // Switch map image
+    document.getElementById('map-image').src = GAME_CONFIG.maps[nextStage];
+
+    // Place ship at entry start position of new map
+    placeShip(nextStage, 'start');
+
+    // Sail to first level of the new map!
+    await sailShip(nextStage, 'start', currentLevelNumber);
+
+    // Open quiz
+    showQuiz();
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     COMPLETE COURSE
+  ────────────────────────────────────────────────────────── */
+  async function completeCourse() {
+    try {
+      await fetch('/api/complete_course', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_id: GAME_CONFIG.courseId })
+      });
+    } catch (err) {
+      console.warn('complete_course API failed:', err);
+    }
+    window.location.href = '/completion/' + GAME_CONFIG.courseId;
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     LOST OVERLAY
+  ────────────────────────────────────────────────────────── */
+  function showLostOverlay(errorMsg) {
+    const lost = document.getElementById('lost-overlay');
+    document.getElementById('lost-error-msg').textContent = errorMsg || '';
+    lost.style.display = 'flex';
+    document.getElementById('submit-btn').disabled = true;
+  }
+
+  function tryAgain() {
+    document.getElementById('lost-overlay').style.display = 'none';
+    document.getElementById('submit-btn').disabled        = false;
+
+    hearts     = 5;
+    errorCount = 0;
+    updateHeartsDisplay();
+    updateErrorCount();
+
+    document.getElementById('code-editor').value            = '';
+    document.getElementById('result-display').style.display = 'none';
+
+    rotateQuestion();
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     ROTATE QUESTION
+  ────────────────────────────────────────────────────────── */
+  function rotateQuestion() {
+    fetch('/api/get_questions', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course_id: GAME_CONFIG.courseId,
+        level:     currentStage
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.questions && data.questions[currentLevelIndex]) {
+        if (!sessionQuestions[currentStage]) sessionQuestions[currentStage] = [];
+        sessionQuestions[currentStage][currentLevelIndex] = data.questions[currentLevelIndex];
+        document.getElementById('question-text').textContent =
+          sessionQuestions[currentStage][currentLevelIndex].question_text;
+      }
+    })
+    .catch(() => {});
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     UI HELPERS
+  ────────────────────────────────────────────────────────── */
+  function updateHeartsDisplay() {
+    const h = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 5 - hearts));
+    document.getElementById('hearts-display').textContent = h;
+    document.getElementById('quiz-hearts').textContent    = h;
+  }
+
+  function updateLevelDisplay() {
+    document.getElementById('level-display').textContent =
+      'Level ' + currentLevelNumber + ' of 15';
+  }
+
+  function updateErrorCount() {
+    document.getElementById('error-count').textContent =
+      'Errors: ' + errorCount + '/5';
+  }
+
+  function showResult(msg, type) {
+    const el = document.getElementById('result-display');
+    el.style.display    = 'block';
+    el.textContent      = msg;
+    el.style.background = type === 'success' ? 'rgba(0,255,0,0.2)'   : 'rgba(255,0,0,0.2)';
+    el.style.color      = type === 'success' ? '#00ff00'              : '#ff4444';
+    el.style.border     = type === 'success' ? '1px solid #00ff00'    : '1px solid #ff4444';
+    el.style.borderRadius  = '8px';
+    el.style.padding       = '10px';
+    el.style.whiteSpace    = 'pre-wrap';
+    el.style.marginTop     = '10px';
+    el.style.fontFamily    = 'monospace';
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     QUIT GAME & GO HOME
+  ────────────────────────────────────────────────────────── */
+  function quitGame() {
+    fetch('/api/quit_course', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: GAME_CONFIG.courseId })
+    })
+    .then(() => { window.location.href = '/course_select'; })
+    .catch(() => { window.location.href = '/course_select'; });
+  }
+
+  function goHome() {
+    fetch('/api/quit_course', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: GAME_CONFIG.courseId })
+    })
+    .then(() => { window.location.href = '/home'; })
+    .catch(() => { window.location.href = '/home'; });
+  }
+  </script>
+</body>
+</html>

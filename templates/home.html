@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bounty Coders – Home</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: #fff;
+    }
+
+    /* ── Background Video ─────────────────────────────────────────── */
+    #bg-video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    /* ── Shared UI Box ───────────────────────────────────────────── */
+    .ui-box {
+      background: rgba(173, 216, 230, 0.55);
+      border: 2px solid navy;
+      border-radius: 18px;
+      padding: 8px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: navy;
+      font-weight: bold;
+      font-size: 14px;
+      user-select: none;
+      transition: background 0.2s;
+      white-space: nowrap;
+      box-shadow: 0 0 12px rgba(173,216,230,0.8);
+    }
+    .ui-box:hover { background: rgba(173, 216, 230, 0.78); }
+
+    /* ── Top Bar ─────────────────────────────────────────────────── */
+    #top-bar {
+      position: fixed;
+      top: 16px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 200;
+    }
+
+    /* Profile box (top-left) */
+    #profile-box {
+      width: 180px;
+    }
+
+    #profile-avatar-display {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid navy;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #c8e6f5;
+    }
+
+    #profile-avatar-fallback {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid navy;
+      background: #c8e6f5;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    #profile-username-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 110px;
+    }
+
+    /* Top-right two boxes */
+    #top-right {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* ── Bounty Updated Popup ─────────────────────────────────────── */
+    #bounty-updated-popup {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 30, 60, 0.95);
+      border: 2px solid #FFD700;
+      color: #FFD700;
+      font-size: 13px;
+      font-weight: bold;
+      padding: 6px 14px;
+      border-radius: 12px;
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 215, 0, 0.45);
+      z-index: 250;
+      display: none;
+      pointer-events: none;
+      animation: bountyPopAnim 0.35s ease-out forwards;
+    }
+
+    @keyframes bountyPopAnim {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -6px);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+
+    /* ── Main Content ────────────────────────────────────────────── */
+    #main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 80px 20px;
+      position: relative;
+    }
+
+    /* ── Title ───────────────────────────────────────────────────── */
+    #title {
+      font-family: 'Arial Black', Arial, sans-serif;
+      font-size: 64px;
+      font-weight: 900;
+      color: #FFD700;
+      -webkit-text-stroke: 2px navy;
+      text-stroke: 2px navy;
+      letter-spacing: 4px;
+      text-align: center;
+      margin-bottom: 32px;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      line-height: 1.1;
+      position: relative;
+      top: -40px;
+    }
+
+    /* ── Play Button ─────────────────────────────────────────────── */
+    #play-btn {
+      margin-top: 32px;
+      background: #FFD700;
+      color: #000080;
+      border: 3px solid #000080;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 14px 70px;
+      border-radius: 16px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.3s;
+      font-family: 'Arial Black', Arial, sans-serif;
+      box-shadow: 0 0 20px rgba(255,215,0,0.5);
+      position: relative;
+      left: clamp(220px, 24vw, 400px);
+    }
+    #play-btn:hover {
+      background: #22c55e;
+      color: #fff;
+      border-color: darkgreen;
+      box-shadow: 0 0 24px rgba(34,197,94,0.5);
+    }
+
+    /* ── Intro Loading Screen ────────────────────────────────────── */
+    #intro-loading {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000;
+      z-index: 999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+    }
+    #intro-loading.show { display: flex; }
+
+    #intro-loading p {
+      color: #FFD700;
+      font-size: 20px;
+      font-family: 'Arial Black', Arial, sans-serif;
+      letter-spacing: 2px;
+      text-shadow: 0 0 12px rgba(255,215,0,0.6);
+    }
+
+    .loading-bar-wrap {
+      width: 260px;
+      height: 8px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .loading-bar-fill {
+      height: 100%;
+      background: #FFD700;
+      border-radius: 4px;
+      animation: loadBar 1.8s ease-in-out infinite;
+    }
+    @keyframes loadBar {
+      0%   { width: 0%; }
+      60%  { width: 80%; }
+      100% { width: 100%; }
+    }
+
+    /* ── Intro Video Overlay ─────────────────────────────────────── */
+    #intro-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000;
+      z-index: 1000;
+    }
+    #intro-overlay.show { display: block; }
+
+    #intro-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #skip-btn {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      font-size: 18px;
+      background: rgba(0, 0, 0, 0.6);
+      color: red;
+      border: 2px solid red;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 10;
+      transition: background 0.2s;
+    }
+    #skip-btn:hover { background: rgba(180, 0, 0, 0.35); }
+
+    /* ── Log Out ─────────────────────────────────────────────────── */
+    #logout-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      font-size: 16px;
+      font-weight: bold;
+      color: red;
+      cursor: pointer;
+      z-index: 300;
+      background: none;
+      border: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      transition: color 0.2s;
+    }
+    #logout-btn:hover { color: #ff6666; }
+
+    /* ── Modal Backdrop ──────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.70);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    /* ── Modal Inner ─────────────────────────────────────────────── */
+    .modal-inner {
+      background: rgba(173, 216, 230, 0.92);
+      border: 3px solid navy;
+      border-radius: 16px;
+      padding: 30px;
+      min-width: 350px;
+      max-width: 500px;
+      width: 92vw;
+      position: relative;
+      color: navy;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 22px;
+      font-weight: 900;
+      font-family: 'Arial Black', Arial, sans-serif;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: navy;
+      font-weight: bold;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-close:hover { color: red; }
+
+    /* ── Profile Modal ───────────────────────────────────────────── */
+    .avatar-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .avatar-option {
+      width: 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .avatar-option img,
+    .avatar-option .avatar-fallback {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      object-fit: cover;
+      transition: border-color 0.2s, transform 0.2s;
+      display: block;
+    }
+
+    .avatar-fallback {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .avatar-option:hover img,
+    .avatar-option:hover .avatar-fallback {
+      transform: scale(1.08);
+    }
+
+    .avatar-option.selected img,
+    .avatar-option.selected .avatar-fallback {
+      border-color: #FFD700;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+    }
+
+    .avatar-option .avatar-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: navy;
+      text-align: center;
+      text-transform: capitalize;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid navy;
+      background: rgba(255,255,255,0.7);
+      color: navy;
+      font-size: 15px;
+      outline: none;
+    }
+    .form-group input:focus { background: rgba(255,255,255,0.95); }
+
+    .save-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 24px;
+      background: #FFD700;
+      color: #000080;
+      border: 3px solid #000080;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 18px;
+      transition: all 0.3s;
+      font-family: 'Arial Black', Arial, sans-serif;
+    }
+    .save-btn:hover { background: #22c55e; color: #fff; border-color: darkgreen; }
+
+    /* ── History Modal Tabs ──────────────────────────────────────── */
+    .tab-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      border: 2px solid navy;
+      background: rgba(255,255,255,0.35);
+      color: navy;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .tab-btn.active { background: navy; color: #FFD700; }
+    .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.6); }
+
+    #history-content { min-height: 120px; }
+
+    .history-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.45);
+      margin-bottom: 8px;
+      border: 1px solid rgba(0,0,128,0.25);
+    }
+    .history-item .course-name { font-weight: bold; font-size: 15px; }
+    .history-item .course-meta { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+
+    /* ── Bounty Collection Modal (One Piece Theme) ─────────────────── */
+    .bounty-collection-modal {
+      background: linear-gradient(135deg, rgba(28, 20, 14, 0.96) 0%, rgba(18, 12, 8, 0.98) 100%) !important;
+      border: 3px solid #d4af37 !important;
+      border-radius: 18px !important;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(212, 175, 55, 0.35) !important;
+      color: #f5e6c8 !important;
+      max-width: 580px !important;
+      width: 95vw !important;
+      padding: 24px 20px 20px !important;
+    }
+
+    .bounty-collection-modal .modal-close {
+      color: #d4af37 !important;
+      font-size: 24px;
+      top: 14px;
+      right: 18px;
+      transition: transform 0.2s, color 0.2s;
+    }
+    .bounty-collection-modal .modal-close:hover {
+      color: #ff4d4d !important;
+      transform: scale(1.15);
+    }
+
+    .bounty-collection-header {
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .bounty-modal-title {
+      font-family: 'Georgia', 'Arial Black', serif;
+      font-size: clamp(20px, 4.5vw, 26px);
+      font-weight: 900;
+      color: #ffd700;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 215, 0, 0.4);
+    }
+
+    .bounty-subtitle {
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      color: #d4af37;
+      opacity: 0.85;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Course Tabs */
+    .bounty-course-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .bounty-course-tab {
+      background: rgba(45, 30, 20, 0.85);
+      border: 2px solid #8b6528;
+      color: #f3e5ab;
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      font-size: clamp(12px, 2.5vw, 14px);
+      padding: 7px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s ease;
+      user-select: none;
+    }
+
+    .bounty-course-tab:hover:not(.active) {
+      background: rgba(75, 50, 30, 0.95);
+      border-color: #ffd700;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .bounty-course-tab.active {
+      background: linear-gradient(180deg, #ffd700 0%, #c89b3c 100%);
+      border-color: #fff;
+      color: #231206;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.55);
+      transform: translateY(-1px);
+    }
+
+    /* Carousel Wrapper */
+    .bounty-carousel-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      width: 100%;
+      min-height: 420px;
+    }
+
+    .bounty-nav-btn {
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #c89b3c);
+      border: 2px solid #fff;
+      color: #231206;
+      font-size: 20px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 10px rgba(255, 215, 0, 0.4);
+      transition: all 0.2s ease;
+      user-select: none;
+      z-index: 10;
+    }
+
+    .bounty-nav-btn:hover:not(:disabled) {
+      transform: scale(1.12);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7), 0 0 16px rgba(255, 215, 0, 0.7);
+    }
+
+    .bounty-nav-btn:disabled,
+    .bounty-nav-btn.disabled {
+      opacity: 0.2;
+      cursor: not-allowed;
+      pointer-events: none;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .bounty-display-stage {
+      flex: 1;
+      max-width: 360px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Wanted Poster Card */
+    .wanted-poster-card {
+      width: 100%;
+      max-width: 350px;
+      aspect-ratio: 1086 / 1448;
+      position: relative;
+      border-radius: 4px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75), 0 0 15px rgba(212, 175, 55, 0.2);
+      overflow: hidden;
+      transition: transform 0.25s ease;
+      background: #e8cfa1;
+    }
+
+    .wanted-poster-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .poster-template-img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* Poster Dynamic Elements */
+    .poster-avatar-box {
+      position: absolute;
+      left: 23.3%;
+      top: 20.8%;
+      width: 53.3%;
+      height: 36.4%;
+      background: #ffffff;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .poster-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .poster-username {
+      position: absolute;
+      left: 12%;
+      top: 65.5%;
+      width: 76%;
+      height: 8.5%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Georgia', serif;
+      font-weight: 900;
+      font-size: clamp(13px, 3.8vw, 21px);
+      color: #2c1608;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+    }
+
+    .poster-bounty {
+      position: absolute;
+      left: 12%;
+      top: 75.3%;
+      width: 76%;
+      height: 9%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-family: 'Georgia', serif;
+      font-weight: 900;
+      font-size: clamp(14px, 4.2vw, 23px);
+      color: #2c1608;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .poster-berry-symbol {
+      font-size: 1.15em;
+      margin-right: 2px;
+    }
+
+    .poster-warning {
+      position: absolute;
+      left: 4.8%;
+      top: 86.8%;
+      width: 63%;
+      height: 11%;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(5.5px, 1.25vw, 7.8px);
+      font-weight: 700;
+      color: #2c1608;
+      line-height: 1.25;
+      text-transform: uppercase;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .poster-warning .p-line {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Empty State */
+    .bounty-empty-card {
+      width: 100%;
+      max-width: 340px;
+      aspect-ratio: 1086 / 1448;
+      background: linear-gradient(135deg, rgba(40, 28, 20, 0.9), rgba(25, 18, 12, 0.95));
+      border: 2px dashed #8b6528;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      text-align: center;
+      color: #f5e6c8;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .bounty-empty-card .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .bounty-empty-card h3 {
+      font-family: 'Georgia', serif;
+      font-size: 18px;
+      color: #ffd700;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .bounty-empty-card p {
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.8;
+      color: #f3e5ab;
+    }
+
+    /* Pagination Bar */
+    .bounty-pagination-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .bounty-page-indicator {
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffd700;
+      letter-spacing: 1px;
+      font-family: Arial, sans-serif;
+    }
+
+    .bounty-dots {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .bounty-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: rgba(212, 175, 55, 0.3);
+      border: 1px solid #d4af37;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .bounty-dot.active {
+      background: #ffd700;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+      transform: scale(1.25);
+    }
+
+    @media (max-width: 500px) {
+      .bounty-collection-modal {
+        padding: 16px 10px 14px !important;
+      }
+      .bounty-carousel-wrap {
+        gap: 6px;
+        min-height: 360px;
+      }
+      .bounty-nav-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+      }
+      .bounty-course-tab {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────── */
+    .modal-inner::-webkit-scrollbar { width: 6px; }
+    .modal-inner::-webkit-scrollbar-track { background: transparent; }
+    .modal-inner::-webkit-scrollbar-thumb { background: rgba(0,0,128,0.4); border-radius: 3px; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      #title { font-size: 38px; letter-spacing: 2px; }
+      #profile-box { width: 150px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background video -->
+  <video id="bg-video" autoplay muted loop playsinline>
+    <source src="{{ url_for('static', filename='media/background.mp4') }}" type="video/mp4">
+  </video>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TOP BAR
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="top-bar">
+
+    <!-- Profile box (top-left) -->
+    <div id="profile-box" class="ui-box" onclick="openModal('profile-modal')" title="Edit Profile">
+      <img id="profile-avatar-display"
+           src="{{ url_for('static', filename='avatars/' ~ (profile.avatar if profile else 'luffy') ~ '.png') }}"
+           alt="Avatar"
+           onerror="this.style.display='none'; document.getElementById('profile-avatar-fallback').style.display='flex';"
+      />
+      <span id="profile-avatar-fallback">🏴‍☠️</span>
+      <span id="profile-username-text">{{ profile.display_name if profile and profile.display_name else username }}</span>
+    </div>
+
+    <!-- Top-right boxes -->
+    <div id="top-right">
+      <div class="ui-box" onclick="openModal('history-modal')" title="Course History">
+        📜 Course History
+      </div>
+      <div id="bounty-box-wrap" style="position: relative;">
+        <div class="ui-box" onclick="openModal('bounty-modal')" title="Your Bounty">
+          💰 Bounty
+        </div>
+        <div id="bounty-updated-popup">bounty updated ⬆</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="main">
+    <h1 id="title">BOUNTY CODERS</h1>
+    <button id="play-btn" onclick="startIntro()">▶ PLAY</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       LOGOUT BUTTON
+  ══════════════════════════════════════════════════════════════ -->
+  <button id="logout-btn" onclick="window.location.href='/logout'">Log out ←</button>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       INTRO LOADING SCREEN (shown while video buffers)
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="intro-loading">
+    <p>⚓ Preparing your adventure…</p>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       INTRO VIDEO OVERLAY
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="intro-overlay">
+    <video id="intro-video" playsinline></video>
+    <button id="skip-btn" onclick="endIntro()">skip ▶</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MODAL A – PROFILE
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="profile-modal" class="modal-backdrop" onclick="backdropClose(event, 'profile-modal')">
+    <div class="modal-inner">
+      <button class="modal-close" onclick="closeModal('profile-modal')">✕</button>
+      <div class="modal-title">✏️ Edit Profile</div>
+
+      <!-- Avatar grid -->
+      <div class="avatar-grid" id="avatar-grid"></div>
+
+      <!-- Display name -->
+      <div class="form-group">
+        <label for="input-display-name">Display Name</label>
+        <input type="text" id="input-display-name"
+               value="{{ profile.display_name if profile else username }}"
+               placeholder="Enter display name" maxlength="32" />
+      </div>
+
+      <!-- Pirate group -->
+      <div class="form-group">
+        <label for="input-pirate-group">Crew Name</label>
+        <input type="text" id="input-pirate-group"
+               value="{{ profile.pirate_group if profile else 'Straw Hat Pirates' }}"
+               placeholder="Enter crew / group name" maxlength="64" />
+      </div>
+
+      <button class="save-btn" onclick="saveProfile()">💾 Save Profile</button>
+      <div id="profile-save-msg" style="text-align:center; margin-top:10px; font-size:13px; min-height:18px;"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MODAL B – COURSE HISTORY
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="history-modal" class="modal-backdrop" onclick="backdropClose(event, 'history-modal')">
+    <div class="modal-inner">
+      <button class="modal-close" onclick="closeModal('history-modal')">✕</button>
+      <div class="modal-title">📜 Course History</div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-ongoing"   onclick="switchTab('ongoing')">Ongoing</button>
+        <button class="tab-btn"        id="tab-completed" onclick="switchTab('completed')">Completed</button>
+      </div>
+
+      <div id="history-content">
+        <div class="modal-loading">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       MODAL C – BOUNTY RECORDS
+  ══════════════════════════════════════════════════════════════ -->
+  <div id="bounty-modal" class="modal-backdrop" onclick="backdropClose(event, 'bounty-modal')">
+    <div class="modal-inner bounty-collection-modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal('bounty-modal')" aria-label="Close">✕</button>
+      
+      <div class="bounty-collection-header">
+        <div class="bounty-modal-title">☠ WANTED POSTERS ☠</div>
+        <div id="bounty-collection-subtitle" class="bounty-subtitle">Grand Line Bounty Registry</div>
+      </div>
+
+      <!-- 4 Course Options -->
+      <div class="bounty-course-tabs" role="tablist">
+        <button class="bounty-course-tab active" id="tab-bounty-python" onclick="selectBountyCourse('python')">
+          <span class="tab-icon">🐍</span> Python
+        </button>
+        <button class="bounty-course-tab" id="tab-bounty-java" onclick="selectBountyCourse('java')">
+          <span class="tab-icon">☕</span> Java
+        </button>
+        <button class="bounty-course-tab" id="tab-bounty-html" onclick="selectBountyCourse('html')">
+          <span class="tab-icon">🌐</span> HTML
+        </button>
+        <button class="bounty-course-tab" id="tab-bounty-c" onclick="selectBountyCourse('c')">
+          <span class="tab-icon">⚡</span> C
+        </button>
+      </div>
+
+      <!-- Carousel Container: < Poster > -->
+      <div class="bounty-carousel-wrap">
+        <button class="bounty-nav-btn prev-btn" id="bounty-prev-btn" onclick="prevBountyPoster()" title="Previous Poster" aria-label="Previous Poster">❮</button>
+
+        <div class="bounty-display-stage" id="bounty-stage">
+          <div class="modal-loading" style="color:#d4af37;">⚓ Loading bounty collection…</div>
+        </div>
+
+        <button class="bounty-nav-btn next-btn" id="bounty-next-btn" onclick="nextBountyPoster()" title="Next Poster" aria-label="Next Poster">❯</button>
+      </div>
+
+      <!-- Pagination / Dots Indicator -->
+      <div class="bounty-pagination-bar" id="bounty-pagination-bar">
+        <span class="bounty-page-indicator" id="bounty-page-indicator">Poster 0 of 0</span>
+        <div class="bounty-dots" id="bounty-dots"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════════════════════════ -->
+  <script>
+  "use strict";
+
+  /* ── Avatar config ─────────────────────────────────────────────── */
+  const AVATARS = [
+    { name: 'luffy',             file: 'luffy.png',             emoji: '🍖' },
+    { name: 'roronoa zoro',      file: 'roronoa zoro.png',      emoji: '⚔️'  },
+    { name: 'nami',              file: 'nami.png',              emoji: '🍊' },
+    { name: 'SANJI',             file: 'SANJI.png',             emoji: '🍽️' },
+    { name: 'ace',               file: 'ace.png',               emoji: '🔥' },
+    { name: 'trafalgar law',     file: 'trafalgar law.png',     emoji: '💙' },
+    { name: 'brook',             file: 'brook.jpg',             emoji: '💀' },
+    { name: 'franky',            file: 'franky.jpg',            emoji: '🤖' },
+    { name: 'robin',             file: 'robin.jpg',             emoji: '🌸' },
+    { name: 'god ussop',         file: 'god ussop.png',         emoji: '🎯' },
+    { name: 'doflamingo',        file: 'doflamingo.png',        emoji: '🕊️' },
+  ];
+
+  /* ── State ─────────────────────────────────────────────────────── */
+  let selectedAvatar = "{{ (profile.avatar if profile else 'luffy') | safe }}";
+  let historyData    = null;
+  let currentTab     = 'ongoing';
+
+  /* ══════════════════════════════════════════════════════════════════
+     MODAL HELPERS
+  ══════════════════════════════════════════════════════════════════ */
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+    if (id === 'history-modal') loadHistory();
+    if (id === 'bounty-modal')  loadBounty();
+    if (id === 'profile-modal') buildAvatarGrid();
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function backdropClose(e, id) {
+    if (e.target === document.getElementById(id)) closeModal(id);
+  }
+
+  /* Close on Escape key */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════════════════
+     AVATAR GRID
+  ══════════════════════════════════════════════════════════════════ */
+  function buildAvatarGrid() {
+    const grid = document.getElementById('avatar-grid');
+    grid.innerHTML = '';
+
+    AVATARS.forEach(av => {
+      const wrap = document.createElement('div');
+      wrap.className = 'avatar-option' + (av.name === selectedAvatar ? ' selected' : '');
+      wrap.dataset.name = av.name;
+      wrap.onclick = () => selectAvatar(av.name);
+
+      const img = document.createElement('img');
+      img.src = '/static/avatars/' + av.file;
+      img.alt = av.name;
+      img.style.cssText = 'width:48px;height:48px;border-radius:50%;border:3px solid transparent;object-fit:cover;';
+
+      const fallback = document.createElement('div');
+      fallback.className = 'avatar-fallback';
+      fallback.style.cssText = 'display:none; width:48px; height:48px; border-radius:50%; border:3px solid transparent; background:#1a3a6c; align-items:center; justify-content:center;';
+      fallback.textContent = av.emoji;
+
+      img.onerror = function() {
+        this.style.display = 'none';
+        fallback.style.display = 'flex';
+      };
+
+      const label = document.createElement('span');
+      label.className = 'avatar-label';
+      label.textContent = av.name;
+
+      wrap.appendChild(img);
+      wrap.appendChild(fallback);
+      wrap.appendChild(label);
+      grid.appendChild(wrap);
+    });
+  }
+
+  function selectAvatar(name) {
+    selectedAvatar = name;
+    document.querySelectorAll('.avatar-option').forEach(el => {
+      const isSelected = el.dataset.name === name;
+      el.classList.toggle('selected', isSelected);
+      // Update border on img/fallback
+      const img = el.querySelector('img');
+      const fb  = el.querySelector('.avatar-fallback');
+      if (img) img.style.borderColor = isSelected ? '#FFD700' : 'transparent';
+      if (fb)  fb.style.borderColor  = isSelected ? '#FFD700' : 'transparent';
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     SAVE PROFILE
+  ══════════════════════════════════════════════════════════════════ */
+  async function saveProfile() {
+    const displayName = document.getElementById('input-display-name').value.trim();
+    const pirateGroup = document.getElementById('input-pirate-group').value.trim();
+    const msg         = document.getElementById('profile-save-msg');
+
+    try {
+      const res = await fetch('/api/update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: selectedAvatar, display_name: displayName, pirate_group: pirateGroup }),
+      });
+
+      if (!res.ok) throw new Error('Server error ' + res.status);
+
+      // Update top-left display
+      document.getElementById('profile-username-text').textContent = displayName || '{{ username }}';
+
+      const avatarImg = document.getElementById('profile-avatar-display');
+      const av = AVATARS.find(a => a.name === selectedAvatar);
+      if (av) {
+        avatarImg.style.display = 'block';
+        document.getElementById('profile-avatar-fallback').style.display = 'none';
+        avatarImg.src = '/static/avatars/' + av.file;
+        avatarImg.onerror = function() {
+          this.style.display = 'none';
+          document.getElementById('profile-avatar-fallback').style.display = 'flex';
+        };
+      }
+
+      msg.style.color = 'darkgreen';
+      msg.textContent = '✔ Profile saved!';
+      setTimeout(() => { msg.textContent = ''; }, 3000);
+    } catch(err) {
+      msg.style.color = 'darkred';
+      msg.textContent = '✖ Could not save: ' + err.message;
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     COURSE HISTORY
+  ══════════════════════════════════════════════════════════════════ */
+  async function loadHistory() {
+    if (historyData) { renderHistory(); return; }
+    document.getElementById('history-content').innerHTML = '<div class="modal-loading">Loading…</div>';
+    try {
+      const res = await fetch('/api/course_history');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      historyData = await res.json();
+      renderHistory();
+    } catch(e) {
+      document.getElementById('history-content').innerHTML =
+        `<div class="modal-error">⚠ Could not load course history.<br><small>${e.message}</small></div>`;
+    }
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-ongoing').classList.toggle('active',   tab === 'ongoing');
+    document.getElementById('tab-completed').classList.toggle('active', tab === 'completed');
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const el = document.getElementById('history-content');
+    if (!historyData) return;
+
+    const list = currentTab === 'ongoing'
+      ? (historyData.ongoing   || [])
+      : (historyData.completed || []);
+
+    if (!list.length) {
+      el.innerHTML = `<div class="modal-loading" style="opacity:0.55">No ${currentTab} courses yet.</div>`;
+      return;
+    }
+
+    el.innerHTML = list.map(c => {
+      if (currentTab === 'ongoing') {
+        return `
+          <div class="history-item">
+            <div class="course-name">${escHtml(c.name || c.course_name || 'Unknown')}</div>
+            <div class="course-meta">Level: ${escHtml(String(c.current_level || '—'))} &nbsp;|&nbsp; Q${escHtml(String(c.current_question_number || '—'))}</div>
+          </div>`;
+      } else {
+        return `
+          <div class="history-item">
+            <div class="course-name">${escHtml(c.name || c.course_name || 'Unknown')}</div>
+            <div class="course-meta">Best Bounty: ${Number(c.best_bounty || 0).toLocaleString()} Berries &nbsp;|&nbsp; ×${c.times || 1} completed</div>
+          </div>`;
+      }
+    }).join('');
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+     BOUNTY POSTER COLLECTION SYSTEM
+  ══════════════════════════════════════════════════════════════════ */
+  let bountyCollectionData = null;
+  let currentBountyCourse  = 'python';
+  let currentPosterIndex   = 0;
+
+  async function loadBounty() {
+    const stage = document.getElementById('bounty-stage');
+    stage.innerHTML = '<div class="modal-loading" style="color:#ffd700;">⚓ Loading bounty posters…</div>';
+    
+    try {
+      const res = await fetch('/api/bounty_collection');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      bountyCollectionData = await res.json();
+      
+      // Keep selected course, reset page to 0
+      currentPosterIndex = 0;
+      updateCourseTabButtons();
+      renderBountyStage();
+    } catch(err) {
+      stage.innerHTML = `<div class="modal-error">⚠ Could not load bounty collection.<br><small>${escHtml(err.message)}</small></div>`;
+      document.getElementById('bounty-prev-btn').disabled = true;
+      document.getElementById('bounty-next-btn').disabled = true;
+    }
+  }
+
+  function selectBountyCourse(courseKey) {
+    if (currentBountyCourse === courseKey && bountyCollectionData) return;
+    currentBountyCourse = courseKey;
+    currentPosterIndex = 0; // Rule 6: Reset current page to first page when user switches courses
+    updateCourseTabButtons();
+    renderBountyStage();
+  }
+
+  function updateCourseTabButtons() {
+    ['python', 'java', 'html', 'c'].forEach(k => {
+      const btn = document.getElementById('tab-bounty-' + k);
+      if (btn) btn.classList.toggle('active', k === currentBountyCourse);
+    });
+  }
+
+  function prevBountyPoster() {
+    if (!bountyCollectionData) return;
+    const course = bountyCollectionData.courses?.[currentBountyCourse];
+    const posters = course?.posters || [];
+    if (currentPosterIndex > 0) {
+      currentPosterIndex--;
+      renderBountyStage();
+    }
+  }
+
+  function nextBountyPoster() {
+    if (!bountyCollectionData) return;
+    const course = bountyCollectionData.courses?.[currentBountyCourse];
+    const posters = course?.posters || [];
+    if (currentPosterIndex < posters.length - 1) {
+      currentPosterIndex++;
+      renderBountyStage();
+    }
+  }
+
+  function goToBountyPoster(idx) {
+    if (!bountyCollectionData) return;
+    currentPosterIndex = idx;
+    renderBountyStage();
+  }
+
+  function renderBountyStage() {
+    const stage = document.getElementById('bounty-stage');
+    const prevBtn = document.getElementById('bounty-prev-btn');
+    const nextBtn = document.getElementById('bounty-next-btn');
+    const indicator = document.getElementById('bounty-page-indicator');
+    const dotsContainer = document.getElementById('bounty-dots');
+
+    if (!bountyCollectionData || !bountyCollectionData.courses) {
+      stage.innerHTML = '<div class="modal-loading">⚓ Loading posters…</div>';
+      return;
+    }
+
+    const u = bountyCollectionData.user || {};
+    const course = bountyCollectionData.courses[currentBountyCourse] || { posters: [], name: currentBountyCourse };
+    const posters = course.posters || [];
+    const total = posters.length;
+
+    // Subtitle update
+    const subtitle = document.getElementById('bounty-collection-subtitle');
+    if (subtitle) {
+      subtitle.textContent = `${course.name} Sea • ${total} Top Bounty Poster${total === 1 ? '' : 's'}`;
+    }
+
+    // Case: Empty records
+    if (total === 0) {
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      indicator.textContent = 'Poster 0 of 0';
+      dotsContainer.innerHTML = '';
+      stage.innerHTML = `
+        <div class="bounty-empty-card">
+          <div class="empty-icon">📜</div>
+          <h3>NO BOUNTIES ISSUED</h3>
+          <p>You haven't earned any Wanted Posters for <strong>${escHtml(course.name)}</strong> yet.</p>
+          <p style="margin-top:10px; font-size:12px; color:#c89b3c;">Complete quiz battles in the Grand Line to increase your infamy and receive your official Marines Wanted Poster!</p>
+        </div>`;
+      return;
+    }
+
+    // Clamp current index
+    if (currentPosterIndex >= total) currentPosterIndex = total - 1;
+    if (currentPosterIndex < 0) currentPosterIndex = 0;
+
+    const poster = posters[currentPosterIndex];
+
+    // Navigation buttons state
+    prevBtn.disabled = (currentPosterIndex <= 0);
+    nextBtn.disabled = (currentPosterIndex >= total - 1);
+
+    // Page indicator & dots
+    indicator.textContent = `Poster ${currentPosterIndex + 1} of ${total}`;
+    dotsContainer.innerHTML = posters.map((_, i) => `
+      <div class="bounty-dot ${i === currentPosterIndex ? 'active' : ''}"
+           onclick="goToBountyPoster(${i})"
+           title="Go to Poster ${i + 1}"></div>
+    `).join('');
+
+    // Poster rendering
+    const displayName = u.display_name || u.username || 'CAPTAIN';
+    const pirateGroup = u.pirate_group || 'STRAW HAT PIRATES';
+    const avatarUrl = u.avatar_url || '';
+    const formattedBounty = poster.formatted_bounty || Number(poster.bounty || 0).toLocaleString();
+
+    stage.innerHTML = `
+      <div class="wanted-poster-card" role="region" aria-label="Bounty poster ${currentPosterIndex + 1}">
+        <img src="/static/media/bounty_template.png" class="poster-template-img" alt="One Piece Wanted Poster" />
+        
+        <!-- Avatar Picture inside white frame -->
+        <div class="poster-avatar-box">
+          ${avatarUrl ? `<img src="${escHtml(avatarUrl)}" class="poster-avatar-img" alt="${escHtml(displayName)}" onerror="this.style.display='none'" />` : ''}
+        </div>
+
+        <!-- Username -->
+        <div class="poster-username" title="${escHtml(displayName)}">
+          ${escHtml(displayName)}
+        </div>
+
+        <!-- Bounty Amount with Berry symbol -->
+        <div class="poster-bounty">
+          <span class="poster-berry-symbol">฿</span>
+          <span class="poster-bounty-val">${escHtml(formattedBounty)}</span>
+          <span class="poster-dash">-</span>
+        </div>
+
+        <!-- Bottom Warning Paragraph -->
+        <div class="poster-warning">
+          <div class="p-line"><strong>${escHtml(displayName)}</strong> IS THE MEMBER OF <strong>${escHtml(pirateGroup)}</strong></div>
+          <div class="p-line">WHO CONSIDERED AS TERRORIST BY NAVY.THE ONE</div>
+          <div class="p-line">WHO CATCHES/KILLS HIM GET THE BOUNTY ASSOCIATED</div>
+          <div class="p-line">TO HIM.IF U FIND HIM SOMEWHERE CALL MARINES</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* Keyboard arrows for poster navigation */
+  document.addEventListener('keydown', e => {
+    const bountyModal = document.getElementById('bounty-modal');
+    if (!bountyModal || !bountyModal.classList.contains('open')) return;
+    if (e.key === 'ArrowLeft') {
+      prevBountyPoster();
+    } else if (e.key === 'ArrowRight') {
+      nextBountyPoster();
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════════════════
+     INTRO VIDEO — with loading screen
+  ══════════════════════════════════════════════════════════════════ */
+  const introLoading = document.getElementById('intro-loading');
+  const introOverlay = document.getElementById('intro-overlay');
+  const introVideo   = document.getElementById('intro-video');
+
+  function startIntro() {
+    // 1. Show loading screen immediately
+    introLoading.classList.add('show');
+
+    // 2. Set up video
+    introVideo.src = '/static/media/intro.mp4';
+    introVideo.load();
+    introVideo.preload = 'auto';
+
+    // 3. When video is ready to play, swap to player
+    introVideo.oncanplay = function() {
+      introLoading.classList.remove('show');
+      introOverlay.classList.add('show');
+      introVideo.play().catch(() => {});
+      introVideo.oncanplay = null;
+    };
+
+    // 4. Safety fallback — if canplay never fires in 8s, play anyway
+    setTimeout(() => {
+      if (introLoading.classList.contains('show')) {
+        introLoading.classList.remove('show');
+        introOverlay.classList.add('show');
+        introVideo.play().catch(() => {});
+      }
+    }, 8000);
+  }
+
+  function endIntro() {
+    introVideo.pause();
+    introVideo.src = '';
+    introOverlay.classList.remove('show');
+    introLoading.classList.remove('show');
+    window.location.href = '/course_select';
+  }
+
+  introVideo.addEventListener('ended', endIntro);
+
+  /* ══════════════════════════════════════════════════════════════════
+     ON PAGE LOAD – sync profile display from API
+  ══════════════════════════════════════════════════════════════════ */
+  (async function fetchProfile() {
+    try {
+      const res = await fetch('/api/get_profile');
+      if (!res.ok) return;
+      const d = await res.json();
+
+      if (d.avatar) {
+        selectedAvatar = d.avatar;
+        const av = AVATARS.find(a => a.name === d.avatar);
+        if (av) {
+          const avatarImg = document.getElementById('profile-avatar-display');
+          avatarImg.style.display = 'block';
+          document.getElementById('profile-avatar-fallback').style.display = 'none';
+          avatarImg.src = '/static/avatars/' + av.file;
+          avatarImg.onerror = function() {
+            this.style.display = 'none';
+            document.getElementById('profile-avatar-fallback').style.display = 'flex';
+          };
+        }
+      }
+      if (d.display_name) {
+        document.getElementById('profile-username-text').textContent = d.display_name;
+        document.getElementById('input-display-name').value = d.display_name;
+      }
+      if (d.pirate_group) {
+        document.getElementById('input-pirate-group').value = d.pirate_group;
+      }
+    } catch(_) {}
+  })();
+
+  /* ══════════════════════════════════════════════════════════════════
+     BOUNTY UPDATED POPUP
+  ══════════════════════════════════════════════════════════════════ */
+  (function initBountyUpdatedNotification() {
+    const serverUpdated = {{ 'true' if bounty_updated else 'false' }};
+    const clientUpdated = sessionStorage.getItem('bounty_updated') === '1';
+
+    const currentBounty = {{ total_bounty }};
+    const lastBountyKey = 'last_bounty_' + '{{ username }}';
+    const lastBounty = localStorage.getItem(lastBountyKey);
+
+    let shouldShow = serverUpdated || clientUpdated;
+    if (lastBounty !== null && currentBounty > parseInt(lastBounty, 10)) {
+      shouldShow = true;
+    }
+    localStorage.setItem(lastBountyKey, currentBounty);
+
+    if (shouldShow) {
+      sessionStorage.removeItem('bounty_updated');
+      const popup = document.getElementById('bounty-updated-popup');
+      if (popup) {
+        popup.style.display = 'block';
+        setTimeout(() => {
+          popup.style.transition = 'opacity 0.6s ease';
+          popup.style.opacity = '0';
+          setTimeout(() => {
+            popup.style.display = 'none';
+          }, 600);
+        }, 4000);
+      }
+    }
+  })();
+
+  /* ══════════════════════════════════════════════════════════════════
+     UTILITY
+  ══════════════════════════════════════════════════════════════════ */
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  </script>
+
+</body>
+</html>

@@ -1,142 +1,177 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Bounty Coders - Crew Log-In</title>
-<style>
-  * { box-sizing: border-box; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bounty Coders – Login</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  body {
-    margin: 0;
-    background: #060a12;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: 'Trebuchet MS', sans-serif;
-  }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
 
- 
-  .login-wrapper {
-    background-image: url(../static/media/login.png);
-    position: relative;
-    width: 100%;
-    max-width: 103.375rem;   
-    aspect-ratio: 1654 / 967;
-    margin: 0 auto;
-  }
+    /* ── Background Video ── */
+    #bg-video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
 
-  .login-wrapper img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: fill;
-    user-select: none;
-    pointer-events: none; 
-  }
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 400px;
+      padding: 40px;
+      background: rgba(173, 216, 230, 0.55);
+      border: 3px solid navy;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 80, 0.35), 0 2px 8px rgba(0,0,0,0.18);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
 
-  
-  .overlay {
-    position: absolute;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: black;       
-    caret-color:black;    
-    font-size: 1.5em;
-    letter-spacing: 0.05em;
-    padding: 0;
-  }
+    /* ── Title ── */
+    .card h1 {
+      text-align: center;
+      color: navy;
+      font-weight: 900;
+      font-size: 2rem;
+      letter-spacing: 3px;
+      margin-bottom: 28px;
+      text-shadow: 1px 1px 0 rgba(255,255,255,0.4);
+    }
 
-  .overlay::placeholder {
-    color: white;
-  }
+    /* ── Inputs ── */
+    .card input[type="text"],
+    .card input[type="email"],
+    .card input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid navy;
+      background: rgba(255, 255, 255, 0.7);
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: #1a1a2e;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
 
-  input.overlay {
-    cursor: text;
-  }
+    .card input:focus {
+      border-color: #0044aa;
+      box-shadow: 0 0 0 3px rgba(0, 0, 128, 0.18);
+    }
 
-  #username {
-    left: 30.5%;
-    top: 32.5%;
-    width: 38.5%;
-    height: 7.5%;
-  }
+    .card input::placeholder {
+      color: #5566aa;
+      opacity: 0.85;
+    }
 
-  #password {
-    left: 30.5%;
-    top: 45%;
-    width: 38.5%;
-    height: 7.5%;
-  }
+    /* ── Button ── */
+    .btn-main {
+      width: 100%;
+      padding: 13px;
+      background: navy;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    }
 
-  #loginBtn {
-    left: 37.5%;
-    top: 57.5%;
-    width: 27%;
-    height: 8%;
-    cursor: pointer;
-  }
+    .btn-main:hover {
+      background: #ffd700;
+      color: navy;
+      box-shadow: 0 0 18px 4px rgba(255, 215, 0, 0.65), 0 0 6px 1px rgba(255,200,0,0.4);
+    }
 
-  .overlay:focus-visible {
-    outline: 0.15rem dashed rgba(232, 196, 119, 0.8);
-    outline-offset: 0.1rem;
-  }
-</style>
+    /* ── Error ── */
+    .error-msg {
+      color: #cc0000;
+      background: rgba(255, 200, 200, 0.55);
+      border: 1px solid #cc0000;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* ── Footer link ── */
+    .card-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: navy;
+    }
+
+    .card-footer a {
+      color: navy;
+      font-weight: 700;
+      text-decoration: underline;
+      transition: color 0.2s;
+    }
+
+    .card-footer a:hover {
+      color: #ffd700;
+    }
+  </style>
 </head>
 <body>
 
-  <div class="login-wrapper">
-    
-      <form id="loginForm" autocomplete="off">
+  <!-- Background Video -->
+  <video id="bg-video" autoplay muted loop playsinline>
+    <source src="{{ url_for('static', filename='media/background.mp4') }}" type="video/mp4" />
+  </video>
+
+  <!-- Login Card -->
+  <div class="card">
+    <h1>BOUNTY CODERS</h1>
+
+    {% if error %}
+      <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/">
       <input
         type="text"
-        id="username"
-        name="username"
-        class="overlay"
-        placeholder="username"
-        autocomplete="off"
+        name="email"
+        placeholder="Enter email or username"
+        autocomplete="username"
         required
-      >
+      />
       <input
         type="password"
-        id="password"
         name="password"
-        class="overlay"
-        placeholder="password"
-        autocomplete="off"
+        placeholder="Enter password"
+        autocomplete="current-password"
         required
-      >
-      <button type="submit" id="loginBtn" class="overlay"></button>
+      />
+      <button type="submit" class="btn-main">LOGIN</button>
     </form>
+
+    <div class="card-footer">
+      <a href="{{ url_for('signup') }}">Create new account</a>
+    </div>
   </div>
-
-  <script>
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    const loginForm = document.getElementById('loginForm');
-
-    usernameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        passwordInput.focus();
-      }
-    });
-
-    // Enter on password -> submit the form
-    passwordInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        loginForm.requestSubmit();
-      }
-    });
-
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
-      console.log('Login attempt:', username, password);
-    });
-  </script>
 
 </body>
 </html>

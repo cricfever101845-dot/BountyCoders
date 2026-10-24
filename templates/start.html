@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounty Coders – Welcome, {{ username }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a192f;
+        }
+
+        /* ── Full-screen background video ── */
+        #bg-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ── Subtle atmosphere overlay ── */
+        .video-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.15);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* ── "Touch to start" label ── */
+        #start-label {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            z-index: 10;
+
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: bold;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-decoration: underline;
+            text-shadow:
+                0 0 8px  rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(255, 255, 255, 0.6),
+                0 0 40px rgba(255, 255, 255, 0.3);
+
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.2s ease;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: translateX(-50%) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translateX(-50%) scale(1.05);
+                opacity: 0.85;
+            }
+        }
+
+        #start-label:hover {
+            color: #FFD700;
+            text-shadow:
+                0 0 8px  rgba(255, 215, 0, 0.9),
+                0 0 20px rgba(255, 215, 0, 0.6),
+                0 0 45px rgba(255, 215, 0, 0.4);
+        }
+    </style>
+</head>
+<body onclick="window.location.href='/home'">
+
+    <!-- Full-screen background video -->
+    <video id="bg-video"
+           src="{{ url_for('static', filename='media/background.mp4') }}"
+           autoplay
+           loop
+           muted
+           playsinline
+           preload="auto">
+        <source src="{{ url_for('static', filename='media/background.mp4') }}" type="video/mp4">
+    </video>
+
+    <!-- Overlay -->
+    <div class="video-overlay"></div>
+
+    <!-- Touch to start -->
+    <span id="start-label">Touch to start</span>
+
+    <script>
+        const video = document.getElementById('bg-video');
+        video.muted = true;
+        video.defaultMuted = true;
+
+        function playVideo() {
+            const promise = video.play();
+            if (promise !== undefined) {
+                promise.catch(err => {
+                    console.log("Autoplay waiting for user gesture:", err);
+                });
+            }
+        }
+
+        // Attempt immediate playback
+        playVideo();
+
+        // Also ensure playback starts on first mousemove or touch if blocked
+        window.addEventListener('touchstart', playVideo, { once: true, passive: true });
+        window.addEventListener('mousemove', playVideo, { once: true, passive: true });
+    </script>
+
+</body>
+</html>
