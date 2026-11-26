@@ -7,7 +7,9 @@ import tempfile
 
 
 _TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="bounty-coders-tests-"))
+os.environ["BCTEST_DISABLE_DOTENV"] = "1"
 os.environ.pop("DATABASE_URL", None)
+os.environ.pop("ONLINECOMPILER_API_KEY", None)
 os.environ["SQLITE_PATH"] = str(_TEST_DATA_DIR / "test.sqlite3")
 os.environ["ENVIRONMENT"] = "development"
 os.environ["SERVICE_ROLE"] = "frontend"
@@ -17,6 +19,8 @@ os.environ["SERVICE_ROLE"] = "frontend"
 # Keep arbitrary code execution out of those tests; the runner has its own
 # production-disabled check and must never depend on a host compiler being set up.
 import bounty_runner
+import code_execution
+from code_execution import ExecutionResult
 
 _real_runner = bounty_runner.run_student_code
 
@@ -30,6 +34,20 @@ def _test_runner(code, language, legacy_host_runner):
 
 
 bounty_runner.run_student_code = _test_runner
+
+_real_execute_code = code_execution.execute_code
+
+
+def _test_execute_code(code, language, stdin=""):
+    override = getattr(code_execution, "TEST_EXECUTION_OVERRIDE", None)
+    if override is not None:
+        return override(code, language, stdin) if callable(override) else override
+    if isinstance(code, str) and len(code.encode("utf-8")) <= code_execution.MAX_CODE_BYTES:
+        return ExecutionResult(output="OK", error=None, error_type=None, ran=True, execution_time="0.001")
+    raise ValueError("Invalid test code")
+
+
+code_execution.execute_code = _test_execute_code
 
 
 def pytest_sessionstart(session):

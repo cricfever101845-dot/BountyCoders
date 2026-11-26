@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bounty Coders | Leaderboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bounty-refresh.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bounty_submission.css') }}">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: max(22px, env(safe-area-inset-top)) 16px 32px; color: #f4f6f8; background: radial-gradient(ellipse at top, #173b53, #06111e 65%); font-family: Inter, system-ui, sans-serif; }
+    .board { width: min(900px, 100%); margin: 0 auto; }
+    .toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:22px; }
+    a { color:#f4ce84; font-weight:700; text-decoration:none; }
+    .title { text-align:center; color:#ffdc8a; font-size:clamp(28px,6vw,48px); margin:18px 0 4px; }
+    .subtitle { text-align:center; color:#b8c9d5; margin:0 0 24px; }
+    .tabs { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .tabs button { min-height:42px; padding:9px 18px; border-radius:999px; border:1px solid #5c7180; background:#10273a; color:#e6edf1; font-weight:700; cursor:pointer; }
+    .tabs button[aria-pressed="true"] { background:#e9bd66; border-color:#ffe0a0; color:#14283b; }
+    .board-card { border:1px solid rgba(240,191,101,.38); border-radius:18px; overflow:hidden; background:rgba(7,23,38,.94); box-shadow:0 22px 65px rgba(0,0,0,.35); }
+    .row { display:grid; grid-template-columns:70px minmax(0,1fr) minmax(125px,auto); align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid rgba(255,255,255,.09); }
+    .row:last-child { border:0; }
+    .row.header { color:#afc4d0; font-size:12px; text-transform:uppercase; letter-spacing:.08em; background:rgba(255,255,255,.04); }
+    .row.me { background:rgba(233,189,102,.12); }
+    .rank { color:#f2ca78; font-weight:900; text-align:center; }
+    .name { overflow-wrap:anywhere; }
+    .score { text-align:right; white-space:nowrap; color:#f5d68f; font-weight:800; }
+    .message { text-align:center; color:#b8c9d5; padding:34px 18px; }
+    @media(max-width:520px) { body{padding-left:10px;padding-right:10px}.row{grid-template-columns:42px minmax(0,1fr) minmax(98px,auto);gap:7px;padding:12px 10px;font-size:14px}.row.header{font-size:10px}.tabs button{padding:8px 12px;font-size:13px}.toolbar{font-size:14px} }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <nav class="toolbar"><a href="/home">← Home</a><span>⚓ {{ username }}</span></nav>
+    <h1 class="title">🏆 Bounty Leaderboard</h1>
+    <p class="subtitle">Your best completed bounty for each difficulty. Overall adds your Easy, Medium, and Hard bests.</p>
+    <div class="tabs" role="group" aria-label="Leaderboard difficulty">
+      <button type="button" data-difficulty="overall" aria-pressed="true">Overall</button>
+      <button type="button" data-difficulty="easy" aria-pressed="false">Easy</button>
+      <button type="button" data-difficulty="medium" aria-pressed="false">Medium</button>
+      <button type="button" data-difficulty="hard" aria-pressed="false">Hard</button>
+    </div>
+    <section class="board-card" aria-live="polite">
+      <div class="row header"><span>Rank</span><span>Coder</span><span class="score">Best bounty</span></div>
+      <div id="entries" class="message">Loading leaderboard…</div>
+    </section>
+  </main>
+  <script>
+    let selectedDifficulty = 'overall';
+    const entries = document.getElementById('entries');
+    document.querySelectorAll('[data-difficulty]').forEach(button => button.addEventListener('click', () => {
+      selectedDifficulty = button.dataset.difficulty;
+      document.querySelectorAll('[data-difficulty]').forEach(tab => tab.setAttribute('aria-pressed', String(tab === button)));
+      loadLeaderboard();
+    }));
+    async function loadLeaderboard() {
+      entries.className = 'message';
+      entries.textContent = 'Loading leaderboard…';
+      try {
+        const response = await fetch('/api/leaderboard?difficulty=' + encodeURIComponent(selectedDifficulty));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load leaderboard.');
+        if (!data.entries.length) {
+          entries.textContent = 'No completed difficulties yet. Finish a difficulty to appear here.';
+          return;
+        }
+        entries.className = '';
+        entries.replaceChildren(...data.entries.map(item => {
+          const row = document.createElement('div');
+          row.className = 'row' + (item.user ? ' me' : '');
+          const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = '#' + item.rank;
+          const name = document.createElement('span'); name.className = 'name'; name.textContent = item.display_name + (item.user ? ' (you)' : '');
+          const score = document.createElement('span'); score.className = 'score'; score.textContent = Number(item.bounty).toLocaleString() + ' berries';
+          row.append(rank, name, score);
+          return row;
+        }));
+      } catch (error) {
+        entries.textContent = error.message;
+      }
+    }
+    loadLeaderboard();
+  </script>
+</body>
+</html>

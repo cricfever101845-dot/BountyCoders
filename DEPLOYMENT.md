@@ -18,7 +18,7 @@ The selected free plans are suitable for a student demo. They do not provide pro
 4. Open **Connect** in the project dashboard. Select **Session pooler** and copy its PostgreSQL connection string. Render's IPv4-only network works with the shared session pooler; the connection string normally uses port `5432` and a username like `postgres.<project-ref>`. Do not substitute the transaction pooler.
 5. The app enforces encrypted PostgreSQL connections with `DB_SSLMODE=require`. No Supabase browser key, service-role key, or Supabase Auth setup is needed.
 
-The app creates the schema on service startup using the safe, repeatable migration in `migrate_db.py`. It creates `users`, `courses`, `questions`, `progress`, `bounty_records`, `user_profiles`, `question_rotation`, and `schema_migrations`, then seeds the four courses and 60 question groups when the database is empty. It never drops tables. Row-level security is enabled on the application tables without browser-facing policies; database access stays on the server.
+The app creates the schema on service startup using the safe, repeatable migration in `migrate_db.py`. It creates the account, course, progress, bounty, attempt, leaderboard, and execution-quota tables, then seeds the four courses and 60 question groups when the database is empty. It never drops tables. Row-level security is enabled without browser-facing policies; application database access stays on the server.
 
 After deployment, confirm the database is ready at `https://<backend-host>/ready` and confirm the tables appear in **Table Editor**. `/health` is the Render health check and does not depend on the database. `/ready` is the separate database check.
 
@@ -42,7 +42,7 @@ Inspect the reported backup path and copied row counts before deploying. Run thi
 3. Review the Blueprint. It creates exactly two free Python web services in Singapore:
    - `bounty-coders-frontend`
    - `bounty-coders-backend`
-4. The Blueprint generates one shared `BOUNTY_SECRET_KEY` for both services. For each service, enter the same Supabase session-pooler connection string as `DATABASE_URL` when Render asks for the value.
+4. The Blueprint generates one shared `BOUNTY_SECRET_KEY` for both services. For each service, enter the same Supabase session-pooler connection string as `DATABASE_URL` when Render asks for the value. Enter the OnlineCompiler REST API key only for the backend service when Render requests it; keep it private.
 5. Sync the Blueprint and wait for both services to deploy. Both use the same build and start commands; startup applies the idempotent database migration before Gunicorn starts.
 6. In each service's **Environment** page, check that `DATABASE_URL` is present and matches exactly. Do not add Supabase credentials to the HTML, JavaScript, or static files.
 7. Check each service's assigned URL. The Blueprint uses these expected URLs:
@@ -95,6 +95,14 @@ The one-worker, four-thread setup keeps each free instance's database connection
 - `FRONTEND_URL` — public HTTPS URL of `bounty-coders-frontend`; this is the allowed browser origin
 - `DB_SSLMODE=require`
 - `BC_RUNNER_MODE=disabled`
+- `CODE_EXECUTION_ENABLED=true`
+- `CODE_EXECUTION_PROVIDER=onlinecompiler`
+- `ONLINECOMPILER_API_KEY` — private key from the provider's dashboard; never put it on the frontend
+- `CODE_EXECUTION_TIME_LIMIT=8` seconds (maximum 30)
+- `CODE_EXECUTION_REQUEST_TIMEOUT=40` seconds
+- `CODE_EXECUTION_PER_HOUR=30` per user
+- `CODE_EXECUTION_PER_DAY=100` per user
+- `CODE_EXECUTION_PER_MONTH=80000` total application runs
 
 `CORS_ALLOWED_ORIGINS` is not required: the browser calls the frontend origin, and the frontend forwards API requests to the backend. The backend accepts state-changing browser requests only from `FRONTEND_URL`. Flask sessions use HTTP-only, Secure, SameSite=Lax cookies. The frontend forwards the session cookie over the server-to-server request, and the services share its signing secret.
 
@@ -106,13 +114,17 @@ After both services are live:
 
 1. Open `/health` on the frontend and backend. Each should return `{"status":"ok"}`.
 2. Open `/ready` on the backend. It should return `{"status":"ready","database":"connected"}`.
-3. Confirm the Supabase tables exist. For a fresh database, `courses` should contain 4 rows and `questions` should contain 60 rows.
+3. Confirm the Supabase tables exist. For a fresh database, `courses` should contain 4 rows and `questions` should contain 60 rows. The migration also creates persistent `difficulty_attempts`, `difficulty_best`, and `execution_requests` tables.
 4. On the frontend, create an account, log out, sign in, open the course list, and start a course. Confirm progress resumes after a refresh.
 5. Check that a request to a protected API without a login returns HTTP 401.
 6. Confirm a cross-origin browser request to the backend is rejected. Normal browser API calls go through the frontend proxy.
 7. Use a phone-sized viewport and a desktop browser to review the pages and static assets.
 
-The public pages and navigation work on both services. **Python, Java, and C answer execution is disabled in production.** The current runner launches submitted programs with the web-service operating-system user's permissions. Its timeouts and temporary folders are not a security boundary. Do not enable that runner on a public service. HTML structure checks remain available. To restore Python/Java/C grading safely, integrate a dedicated isolated code-execution service or a hardened sandbox with per-run CPU, memory, filesystem, process, and network restrictions; that is not included in the free-tier deployment.
+Python, Java, and C source is sent from the backend to OnlineCompiler.io's server-side sync API using compiler IDs `python-3.14`, `openjdk-25`, and `gcc-15`; the key is never sent to the browser. Their API documentation describes per-run gVisor isolation, no network access, memory/process limits, and a maximum 30-second runtime. The app sets an 8-second program limit, 20 KB source cap, bounded output, 30 runs/hour and 100/day per user, and an 80,000-run monthly application cap. The provider's free plan currently advertises 100,000 runs/month, so the app cap leaves headroom. Check current limits before launch: [API and compiler docs](https://onlinecompiler.io/docs/run-code), [compiler IDs](https://onlinecompiler.io/docs/compilers), and [provider limits](https://onlinecompiler.io/docs/limits).
+
+`Run Code` never scores or changes hearts. `Submit Answer` runs code on the provider and grades it server-side. Provider/configuration/quota failures return without a heart or bounty change; a submitted program that actually compiles/runs and produces an error, times out, or returns the wrong output counts as an incorrect answer. This provider stores code, input, output, errors, timing, and IP-address execution history for 365 days according to its [privacy policy](https://onlinecompiler.io/privacy). Do not submit secrets or personal data in code or program input. Its security page says it has no SOC 2 or ISO 27001 certification and has not published a third-party audit; review that statement against your institution's policy before using it with student work. See [provider security details](https://onlinecompiler.io/security).
+
+The game starts each difficulty attempt with three hearts; each correct answer adds 5M/10M/15M berries on Easy/Medium/Hard, and each incorrect submission removes 1M without allowing a negative total. At zero hearts the active difficulty attempt ends and its bounty is reset to zero. Earlier completed difficulties and personal best records remain. Leaderboards rank each user's best completed difficulty score; Overall sums the three bests. Hearts, retries, progress, and best scores are stored in Supabase, so rotation or page refresh cannot alter the score.
 
 ## 6. Free-tier limits and backups
 
@@ -128,6 +140,8 @@ The public pages and navigation work on both services. **Python, Java, and C ans
 - **Database password/authentication failure:** recopy the Session pooler URI from Supabase's Connect panel and update both `DATABASE_URL` values. URL-encode special characters in a manually constructed password.
 - **Database SSL error:** keep `DB_SSLMODE=require`; use the Supabase connection string and hostname exactly as provided.
 - **Frontend API returns 503:** verify `BACKEND_URL`, confirm the backend service is live, then retry after its free instance wakes.
+- **Code run says service is not configured:** add a valid `ONLINECOMPILER_API_KEY` to the backend's private Render environment, then restart that service. Never add it to frontend variables or static assets.
+- **Code service returns 429:** the application per-user rate limit or provider capacity/account limit was reached; wait and retry. The app does not deduct a heart for provider-side failures.
 - **Backend rejects a request with 403:** set `FRONTEND_URL` to the frontend's exact HTTPS origin, with no path or trailing slash.
 - **Render health check fails:** confirm the start command binds Gunicorn to `0.0.0.0:$PORT` and review startup logs for missing required variables or failed migrations.
 - **A free Supabase project is paused:** resume it from the Supabase dashboard, then retry `/ready`.

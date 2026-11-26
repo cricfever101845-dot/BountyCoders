@@ -58,3 +58,19 @@ services:
         value: require
       - key: BC_RUNNER_MODE
         value: disabled
+      - key: CODE_EXECUTION_ENABLED
+        value: "true"
+      - key: CODE_EXECUTION_PROVIDER
+        value: onlinecompiler
+      - key: CODE_EXECUTION_TIME_LIMIT
+        value: "8"
+      - key: CODE_EXECUTION_REQUEST_TIMEOUT
+        value: "40"
+      - key: CODE_EXECUTION_PER_HOUR
+        value: "30"
+      - key: CODE_EXECUTION_PER_DAY
+        value: "100"
+      - key: CODE_EXECUTION_PER_MONTH
+        value: "80000"
+      - key: ONLINECOMPILER_API_KEY
+        sync: false

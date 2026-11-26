@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Bounty Coders – {{ course_name }}</title>
   <style>
     /* ── Reset & Base ─────────────────────────────────────────── */
@@ -127,6 +127,8 @@
       letter-spacing: 3px;
       filter: drop-shadow(0 0 4px rgba(255,80,80,0.6));
     }
+    #bounty-display { color: #ffe6a6; font-weight: 800; font-size: 14px; white-space: nowrap; }
+    #orientation-hint { display: none; color: #d8e8ef; font-size: 12px; margin: 0 0 10px; }
     #gear-btn {
       font-size: 28px;
       cursor: pointer;
@@ -365,6 +367,26 @@
       align-items: center;
       gap: 7px;
     }
+    #run-btn {
+      background: #155e75;
+      color: #ecfeff;
+      border: 1px solid rgba(125,211,252,.5);
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 42px;
+    }
+    #run-btn:disabled { opacity: .62; cursor: wait; }
+    #run-btn .spinner {
+      display: none; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
     #submit-btn:hover { background: #16a34a; transform: translateY(-2px); }
     #submit-btn:disabled {
       background: #555;
@@ -494,6 +516,47 @@
 /* END BOUNTY_GAME_FEEDBACK_V2 */
 </style>
 <link rel="stylesheet" href="/static/css/bounty_submission.css" data-bounty-submission="1">
+<style id="server-game-mobile-layout">
+  #top-bar { z-index: 160; gap: 14px; }
+  #run-btn { background: #155e75 !important; color: #ecfeff !important; border: 1px solid rgba(125,211,252,.5) !important; }
+  #orientation-hint { display: none; }
+  .execution-disclosure { color:#b7c9d2; font-size:11px; line-height:1.4; margin:8px 2px 0; }
+  .execution-disclosure a { color:#ffdb8b; }
+  #quiz-panel { overflow-y: auto; overscroll-behavior: contain; }
+  @media (max-width: 720px) {
+    #top-bar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); gap: 8px; }
+    #top-bar .username { font-size: 13px; max-width: 35vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #bounty-display { font-size: 11px; }
+    #hearts-display { font-size: 20px; letter-spacing: 1px; }
+    #gear-btn { font-size: 23px; }
+    #quiz-overlay { height: 100dvh; }
+    #quiz-panel { top: calc(50% + 24px) !important; width: calc(100vw - 16px) !important; max-height: calc(100dvh - 82px) !important; padding: 14px !important; border-radius: 15px !important; }
+    #question-text { font-size: 15px !important; line-height: 1.45 !important; margin-bottom: 9px; }
+    #code-editor { height: clamp(130px, 28dvh, 240px) !important; min-height: 130px !important; font-size: 13px !important; }
+    .execution-disclosure { font-size:10px; }
+    .submit-row { position: sticky; bottom: -14px; z-index: 12; margin: 8px -14px -14px !important; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(5,18,33,.98); border-top: 1px solid rgba(239,190,101,.25); }
+    #run-btn, #submit-btn, #continue-btn { min-height: 42px; padding: 9px 12px !important; font-size: 12px !important; }
+    #error-count { font-size: 11px; }
+    #result-display { max-height: 110px !important; font-size: 12px !important; }
+  }
+  @media (max-width: 720px) and (orientation: portrait) {
+    #orientation-hint { display: block; }
+    #top-bar { min-height: 54px; }
+  }
+  @media (max-width: 400px) {
+    #top-bar { gap: 5px; }
+    #top-bar .username { max-width: 26vw; font-size: 11px; }
+    #bounty-display { max-width: 36vw; white-space: normal; text-align: center; line-height: 1.1; }
+    #quiz-panel { padding: 11px !important; }
+    .submit-row { gap: 6px !important; margin-left: -11px !important; margin-right: -11px !important; }
+    #run-btn, #submit-btn, #continue-btn { padding: 8px !important; font-size: 11px !important; }
+  }
+  @media (max-height: 520px) and (orientation: landscape) {
+    #quiz-panel { top: 52% !important; max-height: calc(100dvh - 62px) !important; }
+    #code-editor { height: 24dvh !important; min-height: 95px !important; }
+    #question-text { margin-bottom: 6px; }
+  }
+</style>
 </head>
 <body>
 
@@ -517,12 +580,14 @@
   ══════════════════════════════════════════════════════════════ -->
   <div id="top-bar">
     <span class="username">⚓ {{ username }}</span>
-    <div id="hearts-display">❤️❤️❤️❤️❤️</div>
+    <span id="bounty-display" aria-live="polite">Difficulty bounty: 0</span>
+    <div id="hearts-display" aria-label="3 hearts">❤️❤️❤️</div>
     <button id="gear-btn" title="Settings">⚙</button>
   </div>
 
   <!-- GEAR POPUP -->
   <div id="gear-popup">
+    <button class="btn-home" onclick="window.location.href='/leaderboard'">🏆 Leaderboard</button>
     <button onclick="quitGame()">🚪 Quit</button>
     <button class="btn-home" onclick="goHome()">🏠 Home Page</button>
   </div>
@@ -568,14 +633,15 @@
         <div class="lost-skull">💀</div>
         <h2>You Lost!</h2>
         <div id="lost-error-msg"></div>
-        <button id="try-again-btn" onclick="tryAgain()">🔄 Try Again</button>
+        <button id="try-again-btn" onclick="tryAgain()">🔄 Retry Difficulty</button>
       </div>
 
       <!-- Panel Header -->
       <div class="panel-header">
         <span id="level-display">Level 1 of 15</span>
-        <div id="quiz-hearts">❤️❤️❤️❤️❤️</div>
+        <div id="quiz-hearts" aria-label="3 hearts">❤️❤️❤️</div>
       </div>
+      <p id="orientation-hint">Tip: turn your phone sideways for more editor space. Your code stays here while you rotate.</p>
 
       <!-- Question -->
       <div id="question-text">Loading question…</div>
@@ -588,17 +654,22 @@
                 autocorrect="off"
                 autocapitalize="off"
                 placeholder="# Write your code here…"></textarea>
+      <p class="execution-disclosure">Code is sent to OnlineCompiler.io for isolated execution and may be kept in its run history for 365 days. Do not include passwords, API keys, or personal data. <a href="https://onlinecompiler.io/privacy" target="_blank" rel="noopener noreferrer">Privacy details</a>.</p>
 
       <!-- Submit Row -->
       <div class="submit-row">
+        <button id="run-btn" onclick="runCode()">
+          <span class="spinner" id="run-spinner"></span>
+          ▶ Run Code
+        </button>
         <button id="submit-btn" onclick="submitAnswer()">
           <span class="spinner" id="submit-spinner"></span>
-          ▶ Run &amp; Submit
+          ✅ Submit Answer
         </button>
         <button id="continue-btn" onclick="continueToNextLeg()">
           ⚓ Continue Journey ➔
         </button>
-        <span id="error-count">Errors: 0/5</span>
+        <span id="error-count">Incorrect: 0/3</span>
       </div>
 
       <!-- Result Display -->
@@ -671,7 +742,7 @@
     },
 
     bountyGain:    { easy: 5000000,  medium: 10000000, hard: 15000000 },
-    bountyPenalty: { easy: 2000000,  medium: 5000000,  hard: 8000000  }
+    bountyPenalty: 1000000
   };
 
   /* ──────────────────────────────────────────────────────────
@@ -680,7 +751,9 @@
   let currentStage        = 'easy';
   let currentLevelIndex   = 0;       // 0-4 within stage
   let currentLevelNumber  = 1;       // 1-15 overall
-  let hearts              = 5;
+  let hearts              = 3;
+  let difficultyBounty    = 0;
+  let attemptStatus       = 'active';
   let errorCount          = 0;
   let sessionQuestions    = {};
   let isSailing           = false;
@@ -695,7 +768,7 @@
     if (hasSave) {
       document.getElementById('continue-modal').style.display = 'flex';
     } else {
-      startSession(true);
+      startSession(false);
     }
 
     // Gear toggle
@@ -726,6 +799,9 @@
         ta.selectionStart = ta.selectionEnd = start + 4;
       }
     });
+    document.getElementById('code-editor').addEventListener('input', () => {
+      sessionStorage.setItem(codeDraftKey(), document.getElementById('code-editor').value);
+    });
   });
 
   /* ──────────────────────────────────────────────────────────
@@ -733,7 +809,7 @@
   ────────────────────────────────────────────────────────── */
   function handleContinue(yes) {
     document.getElementById('continue-modal').style.display = 'none';
-    startSession(!yes);  // force_new = !yes
+    startSession(!yes);  // force_new = !yes; prior attempts remain saved
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -750,7 +826,15 @@
         })
       });
       const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Could not load this course.');
       sessionQuestions = data.session_questions || {};
+      hearts = Number.isInteger(data.hearts_remaining) ? data.hearts_remaining : 3;
+      difficultyBounty = Number(data.difficulty_bounty || 0);
+      attemptStatus = data.attempt_status || 'active';
+      errorCount = 3 - hearts;
+      updateHeartsDisplay();
+      updateBountyDisplay();
+      updateErrorCount();
 
       if (data.resumed) {
         currentStage       = data.current_level || 'easy';
@@ -782,13 +866,11 @@
       }
     } catch (err) {
       console.error('Failed to start session:', err);
-      currentStage       = 'easy';
-      currentLevelIndex  = 0;
-      currentLevelNumber = 1;
-      document.getElementById('map-image').src = GAME_CONFIG.maps.easy;
-      placeShip('easy', 'start');
-      await sailShip('easy', 'start', 1);
-      showQuiz();
+      document.getElementById('question-text').textContent = 'The saved game could not be loaded. Check your connection and refresh.';
+      document.getElementById('quiz-overlay').style.display = 'block';
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('run-btn').disabled = true;
+      showResult('⚠️ ' + err.message, 'error');
     }
   }
 
@@ -797,6 +879,14 @@
   ────────────────────────────────────────────────────────── */
   function stageToBase(stage) {
     return { easy: 1, medium: 6, hard: 11 }[stage] || 1;
+  }
+
+  function codeDraftKey() {
+    return 'bc-code-draft-' + GAME_CONFIG.courseId + '-' + currentStage + '-' + currentLevelIndex;
+  }
+
+  function newRequestId() {
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(16).slice(2);
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -880,120 +970,140 @@
     }
 
     // Reset UI state
-    document.getElementById('code-editor').value        = '';
+    document.getElementById('code-editor').value        = sessionStorage.getItem(codeDraftKey()) || '';
     document.getElementById('result-display').style.display = 'none';
     document.getElementById('lost-overlay').style.display  = 'none';
     document.getElementById('submit-btn').disabled          = false;
+    document.getElementById('run-btn').disabled             = false;
     document.getElementById('submit-btn').style.display     = 'flex';
     document.getElementById('submit-spinner').style.display = 'none';
     document.getElementById('continue-btn').style.display   = 'none';
 
-    hearts     = 5;
-    errorCount = 0;
     updateHeartsDisplay();
+    updateBountyDisplay();
     updateLevelDisplay();
     updateErrorCount();
 
     // Show overlay & play background video
     document.getElementById('quiz-overlay').style.display = 'block';
     document.getElementById('quiz-bg-video').play().catch(() => {});
+    if (attemptStatus === 'failed') showLostOverlay('All 3 hearts were used. This difficulty attempt ended and its bounty was reset to zero.');
   }
 
   /* ──────────────────────────────────────────────────────────
      SUBMIT ANSWER
   ────────────────────────────────────────────────────────── */
-  async function submitAnswer() {
-    const btn     = document.getElementById('submit-btn');
-    const spinner = document.getElementById('submit-spinner');
-    const code    = document.getElementById('code-editor').value.trim();
-
-    if (!code) {
-      showResult('⚠️ Please write some code before submitting.', 'error');
+  async function runCode() {
+    const button = document.getElementById('run-btn');
+    const spinner = document.getElementById('run-spinner');
+    const code = document.getElementById('code-editor').value;
+    if (!code.trim()) {
+      showResult('Write some code before running it.', 'error');
       return;
     }
-
-    btn.disabled          = true;
+    button.disabled = true;
     spinner.style.display = 'inline-block';
-
-    const stageQs = sessionQuestions[currentStage];
-    const q       = stageQs ? stageQs[currentLevelIndex] : null;
-
     try {
-      const resp = await fetch('/api/submit_answer', {
-        method:  'POST',
+      const response = await fetch('/api/run_code', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          course_id:       GAME_CONFIG.courseId,
-          level:           currentStage,
-          question_number: currentLevelIndex + 1,
-          code:            code,
+          request_id: newRequestId(), course_id: GAME_CONFIG.courseId,
+          level: currentStage, question_number: currentLevelIndex + 1, code: code
         })
       });
-      const data = await resp.json();
-      if (!resp.ok) {
-        showResult('⚠️ ' + (data.error || 'Could not check your answer.'), 'error');
-        btn.disabled = false;
+      const data = await response.json();
+      if (!response.ok) {
+        showResult((data.error || 'The code service could not run this snippet.') + '\nNo heart or bounty changed.', 'error');
         return;
       }
+      const lines = ['Run finished. This does not submit an answer or change hearts/bounty.'];
+      if (data.output) lines.push('\nOutput:\n' + data.output);
+      if (data.error) lines.push('\n' + (data.error_type || 'Program error') + ':\n' + data.error);
+      showResult(lines.join(''), data.error ? 'error' : 'success');
+    } catch (error) {
+      showResult('The code service could not be reached. No heart or bounty changed. Please retry.', 'error');
+    } finally {
+      spinner.style.display = 'none';
+      button.disabled = false;
+    }
+  }
+
+  async function submitAnswer() {
+    const button = document.getElementById('submit-btn');
+    const runButton = document.getElementById('run-btn');
+    const spinner = document.getElementById('submit-spinner');
+    const code = document.getElementById('code-editor').value;
+    if (!code.trim()) {
+      showResult('Write some code before submitting.', 'error');
+      return;
+    }
+    button.disabled = true;
+    runButton.disabled = true;
+    spinner.style.display = 'inline-block';
+    try {
+      const response = await fetch('/api/submit_answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: newRequestId(), course_id: GAME_CONFIG.courseId,
+          level: currentStage, question_number: currentLevelIndex + 1, code: code
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const note = data.provider_error || response.status === 429
+          ? '\nNo heart or bounty changed.' : '';
+        showResult('⚠️ ' + (data.error || 'Could not check this answer.') + note, 'error');
+        button.disabled = false;
+        runButton.disabled = false;
+        return;
+      }
+      if (Number.isInteger(data.hearts_remaining)) hearts = data.hearts_remaining;
+      if (Number.isFinite(data.difficulty_bounty)) difficultyBounty = data.difficulty_bounty;
+      updateHeartsDisplay();
+      updateBountyDisplay();
+      updateErrorCount();
 
       if (data.correct) {
+        sessionStorage.removeItem(codeDraftKey());
+        attemptStatus = data.difficulty_completed ? 'completed' : 'active';
         sessionStorage.setItem('bounty_updated', '1');
-        showResult('✅ ' + (data.success_message || 'Correct! Next island unlocked!') + (data.output ? '\nOutput:\n' + data.output : ''), 'success');
-        btn.disabled = true;
-        // Display Continue button
-        const continueBtn = document.getElementById('continue-btn');
-        if (continueBtn) continueBtn.style.display = 'inline-flex';
-
-        // Auto advance after 2.2 seconds if user does not click Continue
-        autoContinueTimer = setTimeout(() => {
-          continueToNextLeg();
-        }, 2200);
+        showResult('✅ ' + (data.success_message || 'Correct! Next island unlocked!') +
+          (data.output ? '\nOutput:\n' + data.output : '') +
+          '\n+' + Number(data.bounty_gained || 0).toLocaleString() + ' berries', 'success');
+        const continueButton = document.getElementById('continue-btn');
+        if (continueButton) continueButton.style.display = 'inline-flex';
+        autoContinueTimer = setTimeout(continueToNextLeg, 2200);
       } else {
-        if (data.error_type === 'configuration_error' || data.error_type === 'unsupported_language') {
-          showResult('⚙️ Runner not ready: ' + (data.error || 'Check server configuration.'), 'error');
-          btn.disabled = false;
-          return;
-        }
-        hearts--;
-        errorCount++;
-        updateHeartsDisplay();
-        updateErrorCount();
-
-        let errorLabel = '❌ Wrong answer.';
-        if (data.error_type === 'compilation_error') {
-          errorLabel = '🔧 Compilation Error.';
-        } else if (data.error_type === 'runtime_error') {
-          errorLabel = '💥 Runtime Error.';
-        } else if (data.error_type === 'timeout') {
-          errorLabel = '⏱️ Time Limit Exceeded.';
-        }
-
-        const errDetail = [
-          errorLabel,
-          data.expected !== undefined ? 'Expected: ' + data.expected : null,
-          data.output   !== undefined && data.output !== '' ? 'Got:      ' + data.output   : null,
-          data.error    ? 'Error:    ' + data.error : null,
-          data.comparison_detail ? 'Detail:   ' + data.comparison_detail : null
-        ].filter(Boolean).join('\n');
-
-        showResult(errDetail, 'error');
-
-        // Deduct bounty penalty
-        fetch('/api/lose_heart', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ course_id: GAME_CONFIG.courseId, level: currentStage })
-        }).catch(() => {});
-
-        btn.disabled = false;
-
-        if (hearts <= 0) {
-          showLostOverlay(data.error || 'All hearts lost! Check your code carefully.');
+        const labels = {
+          compilation_error: '🔧 Compilation error.',
+          runtime_error: '💥 Runtime error.',
+          timeout: '⏱️ Time limit exceeded.',
+          wrong_output: '❌ Output did not match.'
+        };
+        const parts = [labels[data.error_type] || '❌ Answer was incorrect.'];
+        if (data.output) parts.push('Output:\n' + data.output);
+        if (data.error) parts.push('Details:\n' + data.error);
+        parts.push('−' + Number(data.bounty_lost || 0).toLocaleString() + ' berries.');
+        showResult(parts.join('\n\n'), 'error');
+        if (data.attempt_failed) {
+          attemptStatus = 'failed';
+          currentLevelIndex = 0;
+          currentLevelNumber = stageToBase(currentStage);
+          updateLevelDisplay();
+          const firstQuestion = sessionQuestions[currentStage]?.[0];
+          if (firstQuestion) document.getElementById('question-text').textContent = firstQuestion.question_text;
+          showLostOverlay('All 3 hearts were used. This difficulty attempt ended and its bounty was reset to zero. Your completed difficulties and best records are saved.');
+        } else {
+          button.disabled = false;
+          runButton.disabled = false;
         }
       }
-    } catch (err) {
-      showResult('🌐 Network error. Please check your connection.', 'error');
-      btn.disabled = false;
+    } catch (error) {
+      showResult('Network error while checking the answer. No score change was confirmed; retry after reconnecting.', 'error');
+      button.disabled = false;
+      runButton.disabled = false;
     } finally {
       spinner.style.display = 'none';
     }
@@ -1065,6 +1175,13 @@
     currentStage       = nextStage;
     currentLevelIndex  = 0;
     currentLevelNumber = stageToBase(nextStage);
+    hearts = 3;
+    difficultyBounty = 0;
+    errorCount = 0;
+    attemptStatus = 'active';
+    updateHeartsDisplay();
+    updateBountyDisplay();
+    updateErrorCount();
     updateLevelDisplay();
 
     // Switch map image
@@ -1106,19 +1223,41 @@
     document.getElementById('submit-btn').disabled = true;
   }
 
-  function tryAgain() {
-    document.getElementById('lost-overlay').style.display = 'none';
-    document.getElementById('submit-btn').disabled        = false;
-
-    hearts     = 5;
-    errorCount = 0;
-    updateHeartsDisplay();
-    updateErrorCount();
-
-    document.getElementById('code-editor').value            = '';
-    document.getElementById('result-display').style.display = 'none';
-
-    rotateQuestion();
+  async function tryAgain() {
+    const button = document.getElementById('try-again-btn');
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/retry_difficulty', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_id: GAME_CONFIG.courseId })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not start a new attempt.');
+      currentStage = data.current_level;
+      currentLevelIndex = 0;
+      currentLevelNumber = stageToBase(currentStage);
+      hearts = data.hearts_remaining;
+      difficultyBounty = data.difficulty_bounty || 0;
+      attemptStatus = 'active';
+      errorCount = 0;
+      sessionStorage.removeItem(codeDraftKey());
+      document.getElementById('question-text').textContent = sessionQuestions[currentStage][0].question_text;
+      document.getElementById('lost-overlay').style.display = 'none';
+      document.getElementById('result-display').style.display = 'none';
+      document.getElementById('code-editor').value = '';
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('run-btn').disabled = false;
+      document.getElementById('quiz-overlay').style.display = 'block';
+      placeShip(currentStage, currentLevelNumber);
+      updateHeartsDisplay();
+      updateBountyDisplay();
+      updateErrorCount();
+      updateLevelDisplay();
+    } catch (error) {
+      document.getElementById('lost-error-msg').textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -1144,6 +1283,7 @@
       }
       if (!sessionQuestions[currentStage]) sessionQuestions[currentStage] = [];
       sessionQuestions[currentStage][currentLevelIndex] = data.question;
+      sessionStorage.removeItem(codeDraftKey());
       document.getElementById('question-text').textContent = data.question.question_text;
       document.getElementById('code-editor').value = '';
       if (out) out.style.display = 'none';
@@ -1154,9 +1294,16 @@
     }
   }
   function updateHeartsDisplay() {
-    const h = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 5 - hearts));
+    const h = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 3 - hearts));
     document.getElementById('hearts-display').textContent = h;
     document.getElementById('quiz-hearts').textContent    = h;
+    document.getElementById('hearts-display').setAttribute('aria-label', hearts + ' hearts remaining');
+    document.getElementById('quiz-hearts').setAttribute('aria-label', hearts + ' hearts remaining');
+  }
+
+  function updateBountyDisplay() {
+    const display = document.getElementById('bounty-display');
+    if (display) display.textContent = 'Difficulty bounty: ' + Number(difficultyBounty || 0).toLocaleString() + ' berries';
   }
 
   function updateLevelDisplay() {
@@ -1166,7 +1313,7 @@
 
   function updateErrorCount() {
     document.getElementById('error-count').textContent =
-      'Errors: ' + errorCount + '/5';
+      'Incorrect: ' + (3 - hearts) + '/3';
   }
 
   function showResult(msg, type) {

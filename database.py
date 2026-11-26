@@ -11,6 +11,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
+if os.environ.get("BCTEST_DISABLE_DOTENV") != "1":
+    load_dotenv(override=False)
+
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_SQLITE_PATH = ROOT / "bountycoders.db"
@@ -154,6 +159,38 @@ def _schema_statements(postgres: bool) -> list[str]:
             bounty BIGINT NOT NULL DEFAULT 0,
             completed_at {timestamp}
         )""",
+        f"""CREATE TABLE IF NOT EXISTS difficulty_attempts (
+            id {identity},
+            progress_id INTEGER NOT NULL REFERENCES progress(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            course_id TEXT NOT NULL REFERENCES courses(id),
+            difficulty TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
+            attempt_number INTEGER NOT NULL,
+            hearts_remaining INTEGER NOT NULL DEFAULT 3 CHECK (hearts_remaining BETWEEN 0 AND 3),
+            bounty_earned BIGINT NOT NULL DEFAULT 0 CHECK (bounty_earned >= 0),
+            status TEXT NOT NULL CHECK (status IN ('active','completed','failed')),
+            started_at {timestamp},
+            completed_at {timestamp},
+            UNIQUE(progress_id, difficulty, attempt_number)
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS difficulty_best (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            difficulty TEXT NOT NULL CHECK (difficulty IN ('easy','medium','hard')),
+            bounty BIGINT NOT NULL DEFAULT 0 CHECK (bounty >= 0),
+            course_id TEXT NOT NULL REFERENCES courses(id),
+            completed_at {timestamp},
+            PRIMARY KEY(user_id, difficulty)
+        )""",
+        """CREATE TABLE IF NOT EXISTS execution_requests (
+            request_id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            operation TEXT NOT NULL,
+            payload_hash TEXT NOT NULL,
+            status TEXT NOT NULL,
+            runs INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            response_json TEXT
+        )""",
         """CREATE TABLE IF NOT EXISTS user_profiles (
             user_id INTEGER PRIMARY KEY REFERENCES users(id),
             display_name TEXT,
@@ -170,6 +207,11 @@ def _schema_statements(postgres: bool) -> list[str]:
         )""",
         "CREATE INDEX IF NOT EXISTS idx_progress_user_course ON progress(user_id, course_id, completed)",
         "CREATE INDEX IF NOT EXISTS idx_bounty_records_user_course ON bounty_records(user_id, course_id)",
+        "CREATE INDEX IF NOT EXISTS idx_difficulty_attempts_user_status ON difficulty_attempts(user_id, status, difficulty)",
+        "CREATE INDEX IF NOT EXISTS idx_difficulty_attempts_progress ON difficulty_attempts(progress_id, difficulty, attempt_number)",
+        "CREATE INDEX IF NOT EXISTS idx_difficulty_best_difficulty_bounty ON difficulty_best(difficulty, bounty DESC, user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_execution_requests_user_date ON execution_requests(user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_execution_requests_month ON execution_requests(created_at, status)",
     ]
 
 
@@ -267,7 +309,7 @@ def initialize_database(seed_reference_data: bool = True) -> None:
         if postgres:
             # The application connects directly as the database owner. RLS with
             # no browser-facing policies keeps Supabase's Data API closed.
-            for table in ("users", "courses", "questions", "progress", "bounty_records", "user_profiles", "question_rotation"):
+            for table in ("users", "courses", "questions", "progress", "bounty_records", "user_profiles", "question_rotation", "difficulty_attempts", "difficulty_best", "execution_requests", "schema_migrations"):
                 cursor.execute(f"ALTER TABLE public.{table} ENABLE ROW LEVEL SECURITY")
         cursor.execute(
             "INSERT INTO schema_migrations (version) VALUES (%s) ON CONFLICT (version) DO NOTHING"
@@ -280,6 +322,12 @@ def initialize_database(seed_reference_data: bool = True) -> None:
             if postgres else
             "INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)",
             ("003_preserve_legacy_schema",),
+        )
+        cursor.execute(
+            "INSERT INTO schema_migrations (version) VALUES (%s) ON CONFLICT (version) DO NOTHING"
+            if postgres else
+            "INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)",
+            ("004_bounty_hearts_leaderboard_execution_quotas",),
         )
 
         cursor.execute("SELECT version FROM schema_migrations WHERE version = %s" if postgres else
