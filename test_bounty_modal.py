@@ -97,6 +97,7 @@ class TestBountyCollection(unittest.TestCase):
         c = conn.cursor()
         c.execute('DELETE FROM bounty_records WHERE user_id = ?', (test_uid,))
         c.execute('DELETE FROM progress WHERE user_id = ?', (test_uid,))
+        c.execute('DELETE FROM question_rotation WHERE user_id = ?', (test_uid,))
         c.execute('INSERT OR IGNORE INTO users (id, username, email, password, total_bounty) VALUES (?, ?, ?, ?, 0)',
                   (test_uid, 'solopirate', 'solopirate@test.com', 'dummy'))
         conn.commit()
@@ -109,15 +110,19 @@ class TestBountyCollection(unittest.TestCase):
         # Start session for course 104 (C)
         self.client.post('/api/start_session', json={'course_id': '104', 'force_new': True})
 
-        # Answer question 15 (hard q 5)
-        self.client.post('/api/submit_answer', json={
-            'course_id': '104',
-            'level': 'hard',
-            'question_number': 5,
-            'code': '#include <stdio.h>\nint main(){printf("OK");return 0;}',
-            'expected_output': 'OK',
-            'language': 'C'
-        })
+        # Complete the active questions in order; the session API owns progress.
+        for level in ('easy', 'medium', 'hard'):
+            for question_number in range(1, 6):
+                answer = self.client.post('/api/submit_answer', json={
+                    'course_id': '104',
+                    'level': level,
+                    'question_number': question_number,
+                    'code': '#include <stdio.h>\nint main(){printf("OK");return 0;}',
+                    'expected_output': 'OK',
+                    'language': 'C'
+                })
+                self.assertEqual(answer.status_code, 200)
+                self.assertTrue(answer.get_json()['correct'])
 
         # Client also invokes api_complete_course upon animation finish
         self.client.post('/api/complete_course', json={'course_id': '104'})
@@ -135,6 +140,7 @@ class TestBountyCollection(unittest.TestCase):
         c = conn.cursor()
         c.execute('DELETE FROM bounty_records WHERE user_id = ?', (test_uid,))
         c.execute('DELETE FROM progress WHERE user_id = ?', (test_uid,))
+        c.execute('DELETE FROM question_rotation WHERE user_id = ?', (test_uid,))
         c.execute('DELETE FROM users WHERE id = ?', (test_uid,))
         conn.commit()
         conn.close()

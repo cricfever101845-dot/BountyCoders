@@ -1,29 +1,9 @@
-"""
-seed_questions.py — Drops and recreates questions table, then inserts all questions.
-"""
-import sqlite3
+"""Idempotent seed data for the built-in course question bank."""
 
-def seed():
-    conn = sqlite3.connect('bountycoders.db')
+
+def seed(conn):
+    """Insert built-in questions without deleting or replacing existing rows."""
     c = conn.cursor()
-
-    # Drop and recreate with correct schema
-    c.execute('DROP TABLE IF EXISTS questions')
-    c.execute('''CREATE TABLE questions (
-        id TEXT PRIMARY KEY,
-        course_id TEXT NOT NULL,
-        level TEXT NOT NULL,
-        question_number INTEGER NOT NULL,
-        question_text_1 TEXT NOT NULL,
-        expected_output_1 TEXT NOT NULL,
-        question_text_2 TEXT NOT NULL,
-        expected_output_2 TEXT NOT NULL,
-        question_text_3 TEXT NOT NULL,
-        expected_output_3 TEXT NOT NULL,
-        opponent_name TEXT NOT NULL,
-        language TEXT NOT NULL,
-        FOREIGN KEY (course_id) REFERENCES courses(id)
-    )''')
 
     easy_questions = [
         ('101-1', '101', 'easy', 1, 'Write a Python code to print hello world.', 'hello world','Write a Python code to welcome to python', 'welcome to python','Write a Python code to add 100 and 250', '350', 'marine', 'Python'),
@@ -95,20 +75,20 @@ def seed():
     ]
 
     all_q = easy_questions + medium_questions + hard_questions
-    inserted = 0
-    for q in all_q:
-        c.execute('''INSERT INTO questions
+    placeholders = "%s" if conn.__class__.__module__.startswith("psycopg2") else "?"
+    sql = f'''INSERT INTO questions
             (id, course_id, level, question_number,
              question_text_1, expected_output_1,
              question_text_2, expected_output_2,
              question_text_3, expected_output_3,
              opponent_name, language)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', q)
-        inserted += 1
-
-    conn.commit()
-    conn.close()
-    print(f'Seeded {inserted} questions successfully!')
+            VALUES ({", ".join([placeholders] * 12)})
+            ON CONFLICT (id) DO NOTHING'''
+    c.executemany(sql, all_q)
+    return len(all_q)
 
 if __name__ == '__main__':
-    seed()
+    from database import initialize_database
+
+    initialize_database()
+    print("Seeded the built-in question bank without replacing existing rows.")

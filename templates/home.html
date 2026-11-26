@@ -1096,7 +1096,9 @@ body h1:not(#title), body h2, body h3,
   <!-- ══════════════════════════════════════════════════════════════
        LOGOUT BUTTON
   ══════════════════════════════════════════════════════════════ -->
-  <button id="logout-btn" onclick="window.location.href='/logout'">Log out ←</button>
+  <form method="POST" action="{{ url_for('logout') }}">
+    <button id="logout-btn" type="submit">Log out ←</button>
+  </form>
 
   <!-- ══════════════════════════════════════════════════════════════
        INTRO LOADING SCREEN (shown while video buffers)
@@ -1236,7 +1238,7 @@ body h1:not(#title), body h2, body h3,
   ];
 
   /* ── State ─────────────────────────────────────────────────────── */
-  let selectedAvatar = "{{ (profile.avatar if profile else 'luffy') | safe }}";
+  let selectedAvatar = {{ (profile.avatar if profile else 'luffy') | tojson }};
   let historyData    = null;
   let currentTab     = 'ongoing';
 

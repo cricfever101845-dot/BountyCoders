@@ -159,6 +159,8 @@
       text-decoration: none;
       background: none;
       border: none;
+      padding: 0;
+      font-family: inherit;
       transition: color 0.2s ease, text-shadow 0.2s ease;
       z-index: 10;
       user-select: none;
@@ -281,7 +283,9 @@
   </div>
 
   <!-- Logout -->
-  <a class="logout-btn" href="/logout" aria-label="Log out">Log out &lt;-]</a>
+  <form method="POST" action="{{ url_for('logout') }}">
+    <button class="logout-btn" type="submit" aria-label="Log out">Log out &lt;-]</button>
+  </form>
 
   <!-- Gear Settings Button & Popup -->
   <button id="gear-btn" title="Settings" aria-label="Settings">⚙</button>

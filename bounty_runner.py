@@ -67,9 +67,14 @@ def run_student_code(code, language, legacy_host_runner):
     lang = (language or '').strip().lower()
     if lang in ('html and css', 'html/css'):
         return _result(output=code)
+    if os.environ.get('ENVIRONMENT', 'development').strip().lower() == 'production':
+        return _result(
+            error=('Code execution is disabled on this production deployment until an isolated code runner is configured.'),
+            error_type='configuration_error',
+        )
     mode = os.environ.get('BC_RUNNER_MODE', 'portable').strip().lower()
     if mode != 'portable':
-        return _result(error='This submission build requires BC_RUNNER_MODE=portable.', error_type='configuration_error')
+        return _result(error='The local code runner is not enabled for this deployment.', error_type='configuration_error')
 
     with tempfile.TemporaryDirectory(prefix='bounty_code_') as tmp:
         folder = Path(tmp)

@@ -4,8 +4,7 @@ Generated companion module for the college project. Keeps the existing DB schema
 Run through app.py after installing with install_bountycoders_upgrade.py.
 """
 import json
-import os
-import sqlite3
+import logging
 from flask import jsonify, request, session
 
 LEVELS = ('easy', 'medium', 'hard')
@@ -127,8 +126,9 @@ def install(app, get_db, run_code, compare_outputs, classify_error, evaluate_htm
             return jsonify(resumed=False, current_level='easy',
                 current_question_number=1, bounty_earned=0,
                 session_questions=public_session(all_questions))
-        except (sqlite3.Error, ValueError, KeyError, TypeError) as exc:
-            return jsonify(error=f'Could not start course: {exc}'), 500
+        except Exception:
+            logging.getLogger(__name__).exception('Could not start course')
+            return jsonify(error='Could not start the course right now. Please retry.'), 500
         finally:
             conn.close()
 
@@ -166,8 +166,9 @@ def install(app, get_db, run_code, compare_outputs, classify_error, evaluate_htm
                       (json.dumps(stored), prog['id']))
             conn.commit()
             return jsonify(question=entry, success=True)
-        except (sqlite3.Error, ValueError, KeyError, TypeError, IndexError) as exc:
-            return jsonify(error=f'Could not rotate question: {exc}'), 500
+        except Exception:
+            logging.getLogger(__name__).exception('Could not rotate the active question')
+            return jsonify(error='Could not load another question right now. Please retry.'), 500
         finally:
             conn.close()
 

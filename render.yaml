@@ -1,0 +1,60 @@
+envVarGroups:
+  - name: bounty-coders-shared
+    envVars:
+      - key: BOUNTY_SECRET_KEY
+        generateValue: true
+
+services:
+  - type: web
+    name: bounty-coders-frontend
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: python migrate_db.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile -
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - fromGroup: bounty-coders-shared
+      - key: ENVIRONMENT
+        value: production
+      - key: SERVICE_ROLE
+        value: frontend
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: https://bounty-coders-frontend.onrender.com
+      - key: BACKEND_URL
+        value: https://bounty-coders-backend.onrender.com
+      - key: API_PROXY_TIMEOUT_SECONDS
+        value: "90"
+      - key: DB_SSLMODE
+        value: require
+      - key: BC_RUNNER_MODE
+        value: disabled
+
+  - type: web
+    name: bounty-coders-backend
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: python migrate_db.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 --graceful-timeout 30 --access-logfile - --error-logfile -
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - fromGroup: bounty-coders-shared
+      - key: ENVIRONMENT
+        value: production
+      - key: SERVICE_ROLE
+        value: backend
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: https://bounty-coders-frontend.onrender.com
+      - key: DB_SSLMODE
+        value: require
+      - key: BC_RUNNER_MODE
+        value: disabled
