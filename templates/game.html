@@ -326,6 +326,29 @@
       margin: 14px 0;
     }
 
+    /* Compact touch-friendly shortcuts, also available with a physical keyboard. */
+    .code-toolbar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+      margin: 0 0 7px; padding: 5px; background: rgba(4,16,28,.78);
+      border: 1px solid rgba(240,204,128,.25); border-radius: 9px;
+    }
+    .code-toolbar button {
+      flex: 0 0 auto; min-width: 34px; min-height: 38px;
+      padding: 4px 8px; border: 1px solid #466078; border-radius: 6px;
+      background: #1b3448; color: #ffe2a0; cursor: pointer;
+      font: 600 14px/1.15 Consolas,'Courier New',monospace !important;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    .code-toolbar button:active { background: #f4cd74; color: #102030; }
+    .code-toolbar button:focus-visible { outline: 2px solid #f4cd74; outline-offset: 2px; }
+    @media (pointer: coarse) {
+      .code-toolbar { gap: 4px; }
+      .code-toolbar button { min-width: 40px; min-height: 42px; padding: 4px 7px; }
+    }
+    @media (max-height: 520px) and (orientation: landscape) {
+      .code-toolbar { flex-wrap: nowrap; overflow-x: auto; }
+    }
+
     #code-editor {
       width: 100%;
       height: 250px;
@@ -648,11 +671,30 @@
       <hr class="quiz-divider" />
 
       <!-- Code Editor -->
+      <div class="code-toolbar" id="code-toolbar" role="group" aria-label="Code editor shortcuts">
+        <button type="button" data-code-command="indent" aria-label="Indent four spaces" title="Indent four spaces">⇥ Tab</button>
+        <button type="button" data-code-command="outdent" aria-label="Remove indentation" title="Remove indentation">⇤ Out</button>
+        <button type="button" data-code-command="newline" aria-label="New line with indentation" title="New line with indentation">↵</button>
+        <button type="button" data-code-command="(" aria-label="Insert parentheses" title="Insert parentheses">(</button>
+        <button type="button" data-code-command=")" aria-label="Closing parenthesis" title="Closing parenthesis">)</button>
+        <button type="button" data-code-command="[" aria-label="Insert square brackets" title="Insert square brackets">[</button>
+        <button type="button" data-code-command="]" aria-label="Closing square bracket" title="Closing square bracket">]</button>
+        <button type="button" data-code-command="{" aria-label="Insert curly brackets" title="Insert curly brackets">{</button>
+        <button type="button" data-code-command="}" aria-label="Closing curly bracket" title="Closing curly bracket">}</button>
+        <button type="button" data-code-command="&lt;" aria-label="Insert angle brackets" title="Insert angle brackets">&lt;</button>
+        <button type="button" data-code-command="&gt;" aria-label="Closing angle bracket" title="Closing angle bracket">&gt;</button>
+        <button type="button" data-code-command=":" aria-label="Colon" title="Colon">:</button>
+        <button type="button" data-code-command=";" aria-label="Semicolon" title="Semicolon">;</button>
+        <button type="button" data-code-command="&quot;" aria-label="Double quotes" title="Double quotes">&quot;</button>
+        <button type="button" data-code-command="'" aria-label="Single quotes" title="Single quotes">'</button>
+        <button type="button" data-code-command="=" aria-label="Equals" title="Equals">=</button>
+      </div>
       <textarea id="code-editor"
                 spellcheck="false"
                 autocorrect="off"
                 autocapitalize="off"
-                placeholder="# Write your code here…"></textarea>
+                aria-label="Code editor. Tab indents, Shift Tab outdents, Escape leaves the editor."
+                placeholder="Write your code here…"></textarea>
       <p class="execution-disclosure">Code is sent to OnlineCompiler.io for isolated execution and may be kept in its run history for 365 days. Do not include passwords, API keys, or personal data. <a href="https://onlinecompiler.io/privacy" target="_blank" rel="noopener noreferrer">Privacy details</a>.</p>
 
       <!-- Submit Row -->
@@ -802,15 +844,35 @@
       }
     });
 
-    // Tab key support inside code editor
-    document.getElementById('code-editor').addEventListener('keydown', (e) => {
+    const editor = document.getElementById('code-editor');
+    const toolbar = document.getElementById('code-toolbar');
+    const edit = command => {
+      editor.focus({preventScroll: true});
+      if (applyEditorCommand(editor, command)) {
+        editor.dispatchEvent(new Event('input', {bubbles: true}));
+      }
+    };
+    // Keep the caret and soft keyboard in the editor while tapping shortcuts.
+    toolbar.addEventListener('pointerdown', e => {
+      if (e.target.closest('button[data-code-command]') && document.activeElement === editor) {
+        e.preventDefault();
+      }
+    });
+    toolbar.addEventListener('click', e => {
+      const key = e.target.closest('button[data-code-command]');
+      if (key) edit(key.dataset.codeCommand);
+    });
+    editor.addEventListener('keydown', e => {
+      if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Tab') {
         e.preventDefault();
-        const ta = e.target;
-        const start = ta.selectionStart;
-        const end   = ta.selectionEnd;
-        ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
-        ta.selectionStart = ta.selectionEnd = start + 4;
+        edit(e.shiftKey ? 'outdent' : 'indent');
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        edit('newline');
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        toolbar.querySelector('button').focus();
       }
     });
     document.getElementById('code-editor').addEventListener('input', () => {
@@ -893,6 +955,63 @@
   ────────────────────────────────────────────────────────── */
   function stageToBase(stage) {
     return { easy: 1, medium: 6, hard: 11 }[stage] || 1;
+  }
+
+  function applyEditorCommand(editor, command) {
+    const value = editor.value;
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const pairs = {'(': ')', '[': ']', '{': '}', '<': '>', '"': '"', "'": "'"};
+    const closers = [')', ']', '}', '>'];
+    const replace = (text, from, to, nextStart, nextEnd = nextStart) => {
+      editor.setRangeText(text, from, to, 'end');
+      editor.setSelectionRange(nextStart, nextEnd);
+      return true;
+    };
+    if (command === 'indent' && start === end) {
+      return replace('    ', start, end, start + 4);
+    }
+    if (command === 'indent' || command === 'outdent') {
+      const first = value.lastIndexOf('\n', start - 1) + 1;
+      // A selection ending immediately after a newline excludes the next line.
+      const lastOffset = end > start && value[end - 1] === '\n' ? end - 1 : end;
+      const nextBreak = value.indexOf('\n', lastOffset);
+      const last = nextBreak === -1 ? value.length : nextBreak;
+      const original = value.slice(first, last);
+      const lines = original.split('\n');
+      const removeIndent = line => line.replace(/^(?:\t| {1,4})/, '');
+      const updated = lines.map(line => command === 'indent' ? '    ' + line : removeIndent(line)).join('\n');
+      if (original === updated) return false;
+      if (start === end) {
+        const removed = original.length - updated.length;
+        return replace(updated, first, last, Math.max(first, start - removed));
+      }
+      return replace(updated, first, last, first, first + updated.length);
+    }
+    if (command === 'newline') {
+      const first = value.lastIndexOf('\n', start - 1) + 1;
+      const prefix = value.slice(first, start);
+      const indentation = (prefix.match(/^[ \t]*/) || [''])[0];
+      const extra = /[:{]\s*$/.test(prefix) ? '    ' : '';
+      if (prefix.trimEnd().endsWith('{') && value[end] === '}') {
+        const insertion = '\n' + indentation + '    ' + '\n' + indentation;
+        return replace(insertion, start, end, start + 1 + indentation.length + 4);
+      }
+      const insertion = '\n' + indentation + extra;
+      return replace(insertion, start, end, start + insertion.length);
+    }
+    if (start === end && (closers.includes(command) || command === '"' || command === "'") && value[start] === command) {
+      editor.setSelectionRange(start + 1, start + 1);
+      return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(pairs, command)) {
+      const selected = value.slice(start, end);
+      return replace(command + selected + pairs[command], start, end, start + 1, end + 1);
+    }
+    if ([...closers, ':', ';', '='].includes(command)) {
+      return replace(command, start, end, start + command.length);
+    }
+    return false;
   }
 
   function codeDraftKey() {
