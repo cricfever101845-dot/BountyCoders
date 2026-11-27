@@ -477,7 +477,7 @@ def api_course_history():
                         MAX(p.bounty_earned) as best_bounty
                  FROM progress p JOIN courses c ON p.course_id = c.id
                  WHERE p.user_id = ? AND p.completed = 1
-                 GROUP BY p.course_id
+                 GROUP BY p.course_id, c.name
                  ORDER BY best_bounty DESC''', (user_id,))
     completed = [dict(r) for r in c.fetchall()]
 
