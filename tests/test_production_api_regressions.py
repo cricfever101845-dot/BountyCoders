@@ -60,3 +60,31 @@ def test_history_completed_courses():
         response = client.get('/api/course_history')
         assert response.status_code == 200
         assert isinstance(response.get_json()['completed'], list)
+
+def test_readiness_probe_is_short_and_does_not_forward_credentials(monkeypatch):
+    calls = []
+
+    def fake_open(req, timeout):
+        calls.append((req, timeout))
+        return upstream(503, b'<html>starting</html>', 'text/html')
+
+    monkeypatch.setenv('BACKEND_URL', 'https://backend.example')
+    monkeypatch.setattr(application, 'urlopen', fake_open)
+    with application.app.test_request_context('/api/service_ready', headers={'Authorization': 'Bearer test-only', 'Cookie': 'session=example'}):
+        response = application.app.make_response(application._proxy_api_request())
+        assert response.status_code == 503
+        assert response.is_json
+    assert len(calls) == 1
+    req, timeout = calls[0]
+    assert req.full_url == 'https://backend.example/ready'
+    assert timeout <= 12
+    assert req.get_header('Authorization') is None
+    assert req.get_header('Cookie') is None
+
+
+def test_local_readiness_alias_returns_json():
+    with application.app.test_client() as client:
+        response = client.get('/api/service_ready')
+        assert response.status_code == 200
+        assert response.get_json() == {'status': 'ready', 'database': 'connected'}
+        assert response.headers['Cache-Control'] == 'no-store'

@@ -158,3 +158,7 @@ render blueprints validate render.yaml
 ```
 
 The Render Dashboard also validates the Blueprint during sync. Do not sync until validation succeeds and each `DATABASE_URL` value is ready.
+
+### Free-tier cold-start recovery
+
+The browser checks the backend database-readiness endpoint through the frontend before sending API requests. When the backend is asleep, the interface shows a startup message and waits up to 110 seconds for a valid ready response. Checks are short, bounded, and shared between concurrent requests on the same page. There is no background keep-alive. Once ready, the requested API action is sent. Safe reads can be retried; answer submissions and other writes are never automatically replayed. If an answer response is lost, reload saved progress before trying again. The frontend's `/api/service_ready` proxy maps to backend `/ready` without forwarding session credentials. If this endpoint never reports readiness, inspect the Render backend logs and usage limits rather than increasing request timeouts indefinitely.

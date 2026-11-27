@@ -1220,6 +1220,7 @@ body h1:not(#title), body h2, body h3,
   <!-- ══════════════════════════════════════════════════════════════
        JAVASCRIPT
   ══════════════════════════════════════════════════════════════ -->
+  <script src="/static/js/backend-ready.js?v=1"></script>
   <script>
   // A hosting gateway can return HTML before Flask receives the request.
   async function readApiJson(response) {
@@ -1344,7 +1345,7 @@ body h1:not(#title), body h2, body h3,
     const msg         = document.getElementById('profile-save-msg');
 
     try {
-      const res = await fetch('/api/update_profile', {
+      const res = await bcApiFetch('/api/update_profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avatar: selectedAvatar, display_name: displayName, pirate_group: pirateGroup }),
@@ -1384,7 +1385,7 @@ body h1:not(#title), body h2, body h3,
     if (historyData) { renderHistory(); return; }
     document.getElementById('history-content').innerHTML = '<div class="modal-loading">Loading…</div>';
     try {
-      const res = await fetch('/api/course_history');
+      const res = await bcApiFetch('/api/course_history');
       const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'The learning service is temporarily unavailable. Please retry.');
       historyData = data;
@@ -1444,7 +1445,7 @@ body h1:not(#title), body h2, body h3,
     stage.innerHTML = '<div class="modal-loading" style="color:#ffd700;">⚓ Loading bounty posters…</div>';
 
     try {
-      const res = await fetch('/api/bounty_collection');
+      const res = await bcApiFetch('/api/bounty_collection');
       const data = await readApiJson(res);
       if (!res.ok) throw new Error(data.error || 'The learning service is temporarily unavailable. Please retry.');
       bountyCollectionData = data;
@@ -1656,7 +1657,7 @@ body h1:not(#title), body h2, body h3,
   ══════════════════════════════════════════════════════════════════ */
   (async function fetchProfile() {
     try {
-      const res = await fetch('/api/get_profile');
+      const res = await bcApiFetch('/api/get_profile');
       if (!res.ok) return;
       const d = await readApiJson(res);
 

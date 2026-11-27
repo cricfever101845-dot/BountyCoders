@@ -123,21 +123,27 @@ def _proxy_api_request():
         return jsonify({'error': 'Unsupported API method.'}), 405
 
     query = ('?' + request.query_string.decode('latin-1')) if request.query_string else ''
-    destination = backend_url + request.path + query
+    # A readiness probe is a short, credential-free, non-mutating request.
+    # Map it to the existing backend /ready route for rolling deployments.
+    readiness_probe = request.path == '/api/service_ready' and request.method == 'GET'
+    destination = backend_url + ('/ready' if readiness_probe else request.path + query)
     headers = {}
-    for name in ('Content-Type', 'Accept', 'Cookie', 'Origin', 'Authorization', 'X-CSRF-Token'):
+    forwarded_headers = ('Accept',) if readiness_probe else ('Content-Type', 'Accept', 'Cookie', 'Origin', 'Authorization', 'X-CSRF-Token')
+    for name in forwarded_headers:
         value = request.headers.get(name)
         if value:
             headers[name] = value
     body = request.get_data(cache=False) if request.method not in ('GET', 'HEAD') else None
     upstream_request = UpstreamRequest(destination, data=body, headers=headers, method=request.method)
     # Retry safe reads only. A write may commit before its response is lost.
-    safe_read = request.method == 'GET'
+    safe_read = request.method == 'GET' and not readiness_probe
     try:
         timeout = max(1.0, min(90.0, float(os.environ.get('API_PROXY_TIMEOUT_SECONDS', '90'))))
     except ValueError:
         current_app.logger.error('Invalid API_PROXY_TIMEOUT_SECONDS')
         return jsonify(error='The learning service is not configured correctly.'), 503
+    if readiness_probe:
+        timeout = min(timeout, 12.0)
     deadline = time.monotonic() + timeout
     transient_statuses = (502, 503, 504)
 
@@ -195,6 +201,7 @@ def health():
 
 
 @app.route('/ready')
+@app.route('/api/service_ready')
 def readiness():
     conn = None
     try:
@@ -202,7 +209,9 @@ def readiness():
         cursor = conn.cursor()
         cursor.execute('SELECT 1')
         cursor.fetchone()
-        return jsonify({'status': 'ready', 'database': 'connected'})
+        response = jsonify({'status': 'ready', 'database': 'connected'})
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     except Exception:
         current_app.logger.exception('Database readiness check failed')
         return jsonify({'status': 'not_ready', 'database': 'unavailable'}), 503

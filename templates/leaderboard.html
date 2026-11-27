@@ -45,6 +45,7 @@
       <div id="entries" class="message">Loading leaderboard…</div>
     </section>
   </main>
+  <script src="/static/js/backend-ready.js?v=1"></script>
   <script>
   // A hosting gateway can return HTML before Flask receives the request.
   async function readApiJson(response) {
@@ -72,7 +73,7 @@
       entries.className = 'message';
       entries.textContent = 'Loading leaderboard…';
       try {
-        const response = await fetch('/api/leaderboard?difficulty=' + encodeURIComponent(selectedDifficulty));
+        const response = await bcApiFetch('/api/leaderboard?difficulty=' + encodeURIComponent(selectedDifficulty));
         const data = await readApiJson(response);
         if (!response.ok) throw new Error(data.error || 'Could not load leaderboard.');
         if (!data.entries.length) {
