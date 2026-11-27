@@ -675,25 +675,12 @@
         <button type="button" data-code-command="indent" aria-label="Indent four spaces" title="Indent four spaces">⇥ Tab</button>
         <button type="button" data-code-command="outdent" aria-label="Remove indentation" title="Remove indentation">⇤ Out</button>
         <button type="button" data-code-command="newline" aria-label="New line with indentation" title="New line with indentation">↵</button>
-        <button type="button" data-code-command="(" aria-label="Insert parentheses" title="Insert parentheses">(</button>
-        <button type="button" data-code-command=")" aria-label="Closing parenthesis" title="Closing parenthesis">)</button>
-        <button type="button" data-code-command="[" aria-label="Insert square brackets" title="Insert square brackets">[</button>
-        <button type="button" data-code-command="]" aria-label="Closing square bracket" title="Closing square bracket">]</button>
-        <button type="button" data-code-command="{" aria-label="Insert curly brackets" title="Insert curly brackets">{</button>
-        <button type="button" data-code-command="}" aria-label="Closing curly bracket" title="Closing curly bracket">}</button>
-        <button type="button" data-code-command="&lt;" aria-label="Insert angle brackets" title="Insert angle brackets">&lt;</button>
-        <button type="button" data-code-command="&gt;" aria-label="Closing angle bracket" title="Closing angle bracket">&gt;</button>
-        <button type="button" data-code-command=":" aria-label="Colon" title="Colon">:</button>
-        <button type="button" data-code-command=";" aria-label="Semicolon" title="Semicolon">;</button>
-        <button type="button" data-code-command="&quot;" aria-label="Double quotes" title="Double quotes">&quot;</button>
-        <button type="button" data-code-command="'" aria-label="Single quotes" title="Single quotes">'</button>
-        <button type="button" data-code-command="=" aria-label="Equals" title="Equals">=</button>
       </div>
       <textarea id="code-editor"
                 spellcheck="false"
                 autocorrect="off"
                 autocapitalize="off"
-                aria-label="Code editor. Tab indents, Shift Tab outdents, Escape leaves the editor."
+                aria-label="Code editor. Brackets close automatically. Tab indents, Shift Tab outdents, Escape leaves the editor."
                 placeholder="Write your code here…"></textarea>
       <p class="execution-disclosure">Code is sent to OnlineCompiler.io for isolated execution and may be kept in its run history for 365 days. Do not include passwords, API keys, or personal data. <a href="https://onlinecompiler.io/privacy" target="_blank" rel="noopener noreferrer">Privacy details</a>.</p>
 
@@ -862,6 +849,48 @@
       const key = e.target.closest('button[data-code-command]');
       if (key) edit(key.dataset.codeCommand);
     });
+    // beforeinput covers Android/iOS soft keyboards as well as desktop typing.
+    // Only intercept one typed character; never rewrite paste, IME composition,
+    // autocomplete, or multi-character keyboard suggestions.
+    const isPairCommand = key => {
+      if (['(', ')', '[', ']', '{', '}', '"', "'"].includes(key)) return true;
+      return ['<', '>'].includes(key) && /html/i.test(GAME_CONFIG.courseLanguage);
+    };
+    const pairCommand = key => {
+      if (!isPairCommand(key)) return false;
+      if ((key === "'" || key === '"') && editor.selectionStart === editor.selectionEnd) {
+        const pos = editor.selectionStart;
+        // Skip an existing closing quote; don't pair escaped quotes or apostrophes
+        // following a word (e.g. natural language inside a string).
+        if (editor.value[pos] === key) return true;
+        if (editor.value[pos - 1] === '\\') return false;
+        if (key === "'" && /[\w]/.test(editor.value[pos - 1] || '')) return false;
+      }
+      return true;
+    };
+    let pendingPair = null;
+    editor.addEventListener('beforeinput', e => {
+      pendingPair = null;
+      if (e.isComposing || e.inputType !== 'insertText' || !pairCommand(e.data)) return;
+      if (e.cancelable) {
+        e.preventDefault();
+        edit(e.data);
+      } else {
+        // Some mobile keyboards emit non-cancelable beforeinput. Only adjust
+        // the subsequent input if it exactly matches the expected single edit.
+        pendingPair = {key: e.data, value: editor.value, start: editor.selectionStart, end: editor.selectionEnd};
+      }
+    });
+    editor.addEventListener('input', e => {
+      const pending = pendingPair;
+      pendingPair = null;
+      if (!pending || e.isComposing || e.inputType !== 'insertText' || e.data !== pending.key) return;
+      const expected = pending.value.slice(0, pending.start) + pending.key + pending.value.slice(pending.end);
+      if (editor.value !== expected) return;
+      editor.setRangeText(pending.value.slice(pending.start, pending.end), pending.start, pending.start + pending.key.length, 'end');
+      editor.setSelectionRange(pending.start, pending.end);
+      edit(pending.key);
+    });
     editor.addEventListener('keydown', e => {
       if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Tab') {
@@ -870,6 +899,9 @@
       } else if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         edit('newline');
+      } else if (!('onbeforeinput' in editor) && pairCommand(e.key)) {
+        e.preventDefault();
+        edit(e.key);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         toolbar.querySelector('button').focus();
@@ -972,7 +1004,7 @@
       return replace('    ', start, end, start + 4);
     }
     if (command === 'indent' || command === 'outdent') {
-      const first = value.lastIndexOf('\n', start - 1) + 1;
+      const first = (start === 0 ? 0 : value.lastIndexOf('\n', start - 1) + 1);
       // A selection ending immediately after a newline excludes the next line.
       const lastOffset = end > start && value[end - 1] === '\n' ? end - 1 : end;
       const nextBreak = value.indexOf('\n', lastOffset);
@@ -989,7 +1021,7 @@
       return replace(updated, first, last, first, first + updated.length);
     }
     if (command === 'newline') {
-      const first = value.lastIndexOf('\n', start - 1) + 1;
+      const first = (start === 0 ? 0 : value.lastIndexOf('\n', start - 1) + 1);
       const prefix = value.slice(first, start);
       const indentation = (prefix.match(/^[ \t]*/) || [''])[0];
       const extra = /[:{]\s*$/.test(prefix) ? '    ' : '';
