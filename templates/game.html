@@ -639,7 +639,6 @@
       <!-- Panel Header -->
       <div class="panel-header">
         <span id="level-display">Level 1 of 15</span>
-        <div id="quiz-hearts" aria-label="3 hearts">❤️❤️❤️</div>
       </div>
       <p id="orientation-hint">Tip: turn your phone sideways for more editor space. Your code stays here while you rotate.</p>
 
@@ -681,6 +680,21 @@
        JAVASCRIPT
   ══════════════════════════════════════════════════════════════ -->
   <script>
+  // A hosting gateway can return HTML before Flask receives the request.
+  async function readApiJson(response) {
+    const type = (response.headers.get('content-type') || '').toLowerCase();
+    if (type.includes('application/json') || type.includes('+json')) {
+      try {
+        const data = await response.json();
+        if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+      } catch (_) { /* Use the safe message below. */ }
+    }
+    if (response.status === 401) throw new Error('Please sign in again.');
+    if ([502, 503, 504].includes(response.status)) {
+      throw new Error('The learning service is starting or temporarily unavailable. Please retry.');
+    }
+    throw new Error('The server returned an unexpected response. Please retry.');
+  }
   /* ──────────────────────────────────────────────────────────
      GAME CONFIG
   ────────────────────────────────────────────────────────── */
@@ -825,7 +839,7 @@
           force_new: forceNew
         })
       });
-      const data = await resp.json();
+      const data = await readApiJson(resp);
       if (!resp.ok) throw new Error(data.error || 'Could not load this course.');
       sessionQuestions = data.session_questions || {};
       hearts = Number.isInteger(data.hearts_remaining) ? data.hearts_remaining : 3;
@@ -866,11 +880,11 @@
       }
     } catch (err) {
       console.error('Failed to start session:', err);
-      document.getElementById('question-text').textContent = 'The saved game could not be loaded. Check your connection and refresh.';
+      document.getElementById('question-text').textContent = 'The saved game could not be loaded. The service may be starting.';
       document.getElementById('quiz-overlay').style.display = 'block';
       document.getElementById('submit-btn').disabled = true;
       document.getElementById('run-btn').disabled = true;
-      showResult('⚠️ ' + err.message, 'error');
+      showReloadResult('The saved game could not be loaded. Please reload to resume your progress.');
     }
   }
 
@@ -973,8 +987,9 @@
     document.getElementById('code-editor').value        = sessionStorage.getItem(codeDraftKey()) || '';
     document.getElementById('result-display').style.display = 'none';
     document.getElementById('lost-overlay').style.display  = 'none';
-    document.getElementById('submit-btn').disabled          = false;
-    document.getElementById('run-btn').disabled             = false;
+    const questionAvailable = Boolean(stageQs && stageQs[currentLevelIndex] && attemptStatus === 'active');
+    document.getElementById('submit-btn').disabled          = !questionAvailable;
+    document.getElementById('run-btn').disabled             = !questionAvailable;
     document.getElementById('submit-btn').style.display     = 'flex';
     document.getElementById('submit-spinner').style.display = 'none';
     document.getElementById('continue-btn').style.display   = 'none';
@@ -988,6 +1003,7 @@
     document.getElementById('quiz-overlay').style.display = 'block';
     document.getElementById('quiz-bg-video').play().catch(() => {});
     if (attemptStatus === 'failed') showLostOverlay('All 3 hearts were used. This difficulty attempt ended and its bounty was reset to zero.');
+    else if (!questionAvailable) showReloadResult('Question unavailable. Reload your saved progress.');
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -1012,7 +1028,7 @@
           level: currentStage, question_number: currentLevelIndex + 1, code: code
         })
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) {
         showResult((data.error || 'The code service could not run this snippet.') + '\nNo heart or bounty changed.', 'error');
         return;
@@ -1050,11 +1066,15 @@
           level: currentStage, question_number: currentLevelIndex + 1, code: code
         })
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) {
         const note = data.provider_error || response.status === 429
           ? '\nNo heart or bounty changed.' : '';
         showResult('⚠️ ' + (data.error || 'Could not check this answer.') + note, 'error');
+        if ([500, 502, 503, 504].includes(response.status) && !data.provider_error) {
+          showReloadResult('The submission result could not be confirmed. Reload saved progress before submitting again.');
+          return;
+        }
         button.disabled = false;
         runButton.disabled = false;
         return;
@@ -1101,9 +1121,7 @@
         }
       }
     } catch (error) {
-      showResult('Network error while checking the answer. No score change was confirmed; retry after reconnecting.', 'error');
-      button.disabled = false;
-      runButton.disabled = false;
+      showReloadResult('The submission result could not be confirmed. Reload saved progress before submitting again. Your draft is preserved.');
     } finally {
       spinner.style.display = 'none';
     }
@@ -1231,7 +1249,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ course_id: GAME_CONFIG.courseId })
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.error || 'Could not start a new attempt.');
       currentStage = data.current_level;
       currentLevelIndex = 0;
@@ -1277,7 +1295,7 @@
           question_number: currentLevelIndex + 1
         })
       });
-      const data = await resp.json();
+      const data = await readApiJson(resp);
       if (!resp.ok || !data.question) {
         throw new Error(data.error || 'Unable to load another question.');
       }
@@ -1296,9 +1314,7 @@
   function updateHeartsDisplay() {
     const h = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 3 - hearts));
     document.getElementById('hearts-display').textContent = h;
-    document.getElementById('quiz-hearts').textContent    = h;
     document.getElementById('hearts-display').setAttribute('aria-label', hearts + ' hearts remaining');
-    document.getElementById('quiz-hearts').setAttribute('aria-label', hearts + ' hearts remaining');
   }
 
   function updateBountyDisplay() {
@@ -1314,6 +1330,16 @@
   function updateErrorCount() {
     document.getElementById('error-count').textContent =
       'Incorrect: ' + (3 - hearts) + '/3';
+  }
+
+  function showReloadResult(message) {
+    showResult(message, 'error');
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = 'Reload saved game';
+    retry.style.cssText = 'display:block;margin-top:10px;padding:8px 12px;color:#102030;background:#f4cd74;border:0;border-radius:6px;cursor:pointer;';
+    retry.onclick = () => location.reload();
+    document.getElementById('result-display').append(retry);
   }
 
   function showResult(msg, type) {

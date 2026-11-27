@@ -46,6 +46,21 @@
     </section>
   </main>
   <script>
+  // A hosting gateway can return HTML before Flask receives the request.
+  async function readApiJson(response) {
+    const type = (response.headers.get('content-type') || '').toLowerCase();
+    if (type.includes('application/json') || type.includes('+json')) {
+      try {
+        const data = await response.json();
+        if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+      } catch (_) { /* Use the safe message below. */ }
+    }
+    if (response.status === 401) throw new Error('Please sign in again.');
+    if ([502, 503, 504].includes(response.status)) {
+      throw new Error('The learning service is starting or temporarily unavailable. Please retry.');
+    }
+    throw new Error('The server returned an unexpected response. Please retry.');
+  }
     let selectedDifficulty = 'overall';
     const entries = document.getElementById('entries');
     document.querySelectorAll('[data-difficulty]').forEach(button => button.addEventListener('click', () => {
@@ -58,7 +73,7 @@
       entries.textContent = 'Loading leaderboard…';
       try {
         const response = await fetch('/api/leaderboard?difficulty=' + encodeURIComponent(selectedDifficulty));
-        const data = await response.json();
+        const data = await readApiJson(response);
         if (!response.ok) throw new Error(data.error || 'Could not load leaderboard.');
         if (!data.entries.length) {
           entries.textContent = 'No completed difficulties yet. Finish a difficulty to appear here.';
@@ -75,7 +90,13 @@
           return row;
         }));
       } catch (error) {
-        entries.textContent = error.message;
+        entries.textContent = 'Could not load the leaderboard. ' + (error instanceof TypeError ? 'Check your connection.' : error.message) + ' ';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.textContent = 'Retry';
+        retry.style.cssText = 'padding:8px 14px;margin-top:8px;background:#f4cd74;color:#102030;border:0;border-radius:6px;cursor:pointer;';
+        retry.addEventListener('click', loadLeaderboard);
+        entries.append(retry);
       }
     }
     loadLeaderboard();

@@ -378,7 +378,7 @@
     .avatar-option .avatar-label {
       font-size: 11px;
       font-weight: bold;
-      color: navy;
+      color: #e3efff;
       text-align: center;
       text-transform: capitalize;
     }
@@ -1221,6 +1221,21 @@ body h1:not(#title), body h2, body h3,
        JAVASCRIPT
   ══════════════════════════════════════════════════════════════ -->
   <script>
+  // A hosting gateway can return HTML before Flask receives the request.
+  async function readApiJson(response) {
+    const type = (response.headers.get('content-type') || '').toLowerCase();
+    if (type.includes('application/json') || type.includes('+json')) {
+      try {
+        const data = await response.json();
+        if (data && typeof data === 'object' && !Array.isArray(data)) return data;
+      } catch (_) { /* Use the safe message below. */ }
+    }
+    if (response.status === 401) throw new Error('Please sign in again.');
+    if ([502, 503, 504].includes(response.status)) {
+      throw new Error('The learning service is starting or temporarily unavailable. Please retry.');
+    }
+    throw new Error('The server returned an unexpected response. Please retry.');
+  }
   "use strict";
 
   /* ── Avatar config ─────────────────────────────────────────────── */
@@ -1335,7 +1350,8 @@ body h1:not(#title), body h2, body h3,
         body: JSON.stringify({ avatar: selectedAvatar, display_name: displayName, pirate_group: pirateGroup }),
       });
 
-      if (!res.ok) throw new Error('Server error ' + res.status);
+      const result = await readApiJson(res);
+      if (!res.ok) throw new Error(result.error || 'Could not save your profile. Please retry.');
 
       // Update top-left display
       document.getElementById('profile-username-text').textContent = displayName || '{{ username }}';
@@ -1352,11 +1368,11 @@ body h1:not(#title), body h2, body h3,
         };
       }
 
-      msg.style.color = 'darkgreen';
+      msg.style.color = '#85e6a2';
       msg.textContent = '✔ Profile saved!';
       setTimeout(() => { msg.textContent = ''; }, 3000);
     } catch(err) {
-      msg.style.color = 'darkred';
+      msg.style.color = '#ff9a9a';
       msg.textContent = '✖ Could not save: ' + err.message;
     }
   }
@@ -1369,12 +1385,13 @@ body h1:not(#title), body h2, body h3,
     document.getElementById('history-content').innerHTML = '<div class="modal-loading">Loading…</div>';
     try {
       const res = await fetch('/api/course_history');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      historyData = await res.json();
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(data.error || 'The learning service is temporarily unavailable. Please retry.');
+      historyData = data;
       renderHistory();
     } catch(e) {
       document.getElementById('history-content').innerHTML =
-        `<div class="modal-error">⚠ Could not load course history.<br><small>${e.message}</small></div>`;
+        `<div class="modal-error">⚠ Could not load course history.<br><small>Please close and reopen this panel to retry.</small></div>`;
     }
   }
 
@@ -1428,8 +1445,9 @@ body h1:not(#title), body h2, body h3,
 
     try {
       const res = await fetch('/api/bounty_collection');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      bountyCollectionData = await res.json();
+      const data = await readApiJson(res);
+      if (!res.ok) throw new Error(data.error || 'The learning service is temporarily unavailable. Please retry.');
+      bountyCollectionData = data;
 
       // Keep selected course, reset page to 0
       currentPosterIndex = 0;
@@ -1640,7 +1658,7 @@ body h1:not(#title), body h2, body h3,
     try {
       const res = await fetch('/api/get_profile');
       if (!res.ok) return;
-      const d = await res.json();
+      const d = await readApiJson(res);
 
       if (d.avatar) {
         selectedAvatar = d.avatar;

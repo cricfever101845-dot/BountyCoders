@@ -7,10 +7,21 @@ import json
 import random
 import re
 import logging
+import time
+from http.client import HTTPException
 from datetime import datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request as UpstreamRequest, urlopen
+from urllib.request import Request as UpstreamRequest, HTTPRedirectHandler, build_opener
+
+
+class _NoApiRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Never forward signed sessions or authorization to a redirect target.
+urlopen = build_opener(_NoApiRedirect()).open
 
 from database import connect_db, initialize_database, is_postgres_enabled
 
@@ -120,28 +131,62 @@ def _proxy_api_request():
             headers[name] = value
     body = request.get_data(cache=False) if request.method not in ('GET', 'HEAD') else None
     upstream_request = UpstreamRequest(destination, data=body, headers=headers, method=request.method)
+    # Retry safe reads only. A write may commit before its response is lost.
+    safe_read = request.method == 'GET'
     try:
-        timeout = float(os.environ.get('API_PROXY_TIMEOUT_SECONDS', '90'))
+        timeout = max(1.0, min(90.0, float(os.environ.get('API_PROXY_TIMEOUT_SECONDS', '90'))))
+    except ValueError:
+        current_app.logger.error('Invalid API_PROXY_TIMEOUT_SECONDS')
+        return jsonify(error='The learning service is not configured correctly.'), 503
+    deadline = time.monotonic() + timeout
+    transient_statuses = (502, 503, 504)
+
+    for attempt in range(2 if safe_read else 1):
         try:
-            upstream = urlopen(upstream_request, timeout=timeout)
-        except HTTPError as exc:
-            upstream = exc
-        with upstream:
-            payload = upstream.read(256 * 1024)
-            response_headers = []
-            for key in ('Content-Type', 'Cache-Control', 'Retry-After'):
-                value = upstream.headers.get(key)
-                if value:
-                    response_headers.append((key, value))
-            for value in upstream.headers.get_all('Set-Cookie', []):
-                response_headers.append(('Set-Cookie', value))
-            return Response(payload, status=upstream.status, headers=response_headers)
-    except URLError as exc:
-        current_app.logger.warning('Backend API proxy failed: %s', type(exc.reason).__name__)
-        return jsonify({'error': 'The learning service is temporarily unavailable. Please retry.'}), 503
-    except (TimeoutError, OSError) as exc:
-        current_app.logger.warning('Backend API proxy timed out or could not connect: %s', type(exc).__name__)
-        return jsonify({'error': 'The learning service is waking up or temporarily unavailable. Please retry.'}), 503
+            remaining = max(0.1, deadline - time.monotonic())
+            read_timeout = min(remaining, 40.0) if safe_read and attempt == 0 else remaining
+            try:
+                upstream = urlopen(upstream_request, timeout=read_timeout)
+            except HTTPError as exc:
+                upstream = exc
+            with upstream:
+                status = upstream.status
+                payload = upstream.read(256 * 1024 + 1)
+                mime = upstream.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+                valid = False
+                if len(payload) <= 256 * 1024 and (mime == 'application/json' or mime.endswith('+json')):
+                    try:
+                        valid = isinstance(json.loads(payload), (dict, list))
+                    except (ValueError, UnicodeError):
+                        pass
+                if safe_read and attempt == 0 and status in transient_statuses and deadline - time.monotonic() > 2:
+                    time.sleep(2)
+                    continue
+                if 300 <= status < 400 or not valid:
+                    current_app.logger.warning('Invalid upstream API response: path=%s status=%s type=%s',
+                                               request.path, status, mime[:80])
+                    if status in transient_statuses:
+                        return jsonify(error='The learning service is starting or temporarily unavailable. Please retry.'), status
+                    if status == 401:
+                        return jsonify(error='Please sign in again.'), 401
+                    if status == 403:
+                        return jsonify(error='The request was not allowed.'), 403
+                    return jsonify(error='The learning service returned an unexpected response. Please retry.'), 502
+                response_headers = []
+                for key in ('Content-Type', 'Cache-Control', 'Retry-After'):
+                    value = upstream.headers.get(key)
+                    if value:
+                        response_headers.append((key, value))
+                for value in upstream.headers.get_all('Set-Cookie', []):
+                    response_headers.append(('Set-Cookie', value))
+                return Response(payload, status=status, headers=response_headers)
+        except (URLError, TimeoutError, OSError, HTTPException) as exc:
+            current_app.logger.warning('Backend API connection failed: path=%s error=%s', request.path, type(exc).__name__)
+            if safe_read and attempt == 0 and deadline - time.monotonic() > 2:
+                time.sleep(2)
+                continue
+            return jsonify(error='The learning service is starting or temporarily unavailable. Please retry.'), 503
+    return jsonify(error='The learning service is temporarily unavailable. Please retry.'), 503
 
 
 @app.route('/health')
