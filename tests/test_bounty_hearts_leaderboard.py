@@ -263,3 +263,71 @@ def test_leaderboard_and_game_controls_render_for_mobile(player):
     assert "orientation-hint" in page
     assert "orientation: portrait" in page
     assert "bc-code-draft-" in page
+
+
+def test_random_question_pool_and_resume(player):
+    client = player["client"]
+    original = player["start"]["session_questions"]
+    for level, questions in original.items():
+        assert len(questions) == 5
+        assert len({(q["id"], q["alt"]) for q in questions}) == 5
+        assert len({" ".join(q["question_text"].split()).casefold() for q in questions}) == 5
+        conn = get_db()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM questions WHERE course_id=? AND level=? ORDER BY question_number", ("101", level))
+            rows = cursor.fetchall()
+            source = {row["id"]: row for row in rows}
+            for i, q in enumerate(questions):
+                assert q["question_text"] == source[q["id"]][f'question_text_{q["alt"]}']
+                assert q["opponent_name"] == rows[i]["opponent_name"]
+                assert "expected_output" not in q
+        finally:
+            conn.close()
+    resumed = client.post("/api/start_session", json={"course_id": "101"}).get_json()
+    assert resumed["session_questions"] == original
+    fresh = client.post("/api/start_session", json={"course_id": "101", "force_new": True}).get_json()
+    for level in original:
+        assert not ({(q["id"], q["alt"]) for q in original[level]} &
+                    {(q["id"], q["alt"]) for q in fresh["session_questions"][level]})
+
+
+def test_retry_randomizes_only_failed_difficulty(player, monkeypatch):
+    client = player["client"]
+    original = player["start"]["session_questions"]
+    set_run(monkeypatch, output="wrong")
+    for _ in range(3):
+        response = answer(client, "easy", 1)
+        assert response.status_code == 200
+        assert not response.get_json()["correct"]
+    retry = client.post("/api/retry_difficulty", json={"course_id": "101"})
+    assert retry.status_code == 200
+    data = retry.get_json()
+    assert data["hearts_remaining"] == 3
+    assert data["difficulty_bounty"] == 0
+    fresh = data["session_questions"]
+    assert fresh["medium"] == original["medium"]
+    assert fresh["hard"] == original["hard"]
+    assert not ({(q["id"], q["alt"]) for q in original["easy"]} &
+                {(q["id"], q["alt"]) for q in fresh["easy"]})
+    resumed = client.post("/api/start_session", json={"course_id": "101"}).get_json()
+    assert resumed["session_questions"] == fresh
+
+
+def test_rotate_uses_unused_pool_variant_and_rejects_stale_question(player, monkeypatch):
+    client = player["client"]
+    original = player["start"]["session_questions"]["easy"]
+    result = client.post("/api/get_questions", json={"course_id": "101", "level": "easy", "question_number": 1})
+    assert result.status_code == 200
+    replacement = result.get_json()["question"]
+    assert (replacement["id"], replacement["alt"]) not in {(q["id"], q["alt"]) for q in original}
+    assert replacement["opponent_name"] == original[0]["opponent_name"]
+    stale = client.post("/api/submit_answer", json={"course_id": "101", "level": "easy", "question_number": 1,
+                         "question_id": original[0]["id"], "question_alt": original[0]["alt"], "code": "pass"})
+    assert stale.status_code == 409
+    set_run(monkeypatch, output="OK")
+    accepted = client.post("/api/submit_answer", json={"course_id": "101", "level": "easy", "question_number": 1,
+                            "question_id": replacement["id"], "question_alt": replacement["alt"], "code": "pass"})
+    assert accepted.status_code == 200
+    assert accepted.get_json()["correct"]
+    assert accepted.get_json()["bounty_gained"] == 5_000_000

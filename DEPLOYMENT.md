@@ -162,3 +162,8 @@ The Render Dashboard also validates the Blueprint during sync. Do not sync until
 ### Free-tier cold-start recovery
 
 The browser checks the backend database-readiness endpoint through the frontend before sending API requests. When the backend is asleep, the interface shows a startup message and waits up to 110 seconds for a valid ready response. Checks are short, bounded, and shared between concurrent requests on the same page. There is no background keep-alive. Once ready, the requested API action is sent. Safe reads can be retried; answer submissions and other writes are never automatically replayed. If an answer response is lost, reload saved progress before trying again. The frontend's `/api/service_ready` proxy maps to backend `/ready` without forwarding session credentials. If this endpoint never reports readiness, inspect the Render backend logs and usage limits rather than increasing request timeouts indefinitely.
+
+
+### Random question selection
+
+New journeys sample five distinct questions from the full seeded pool for each course and difficulty, independently of the original question-group number. The five map slots retain their original opponents and progression. Selected source IDs and alternatives are persisted in the existing session JSON; resuming a journey does not reroll. Starting a new journey or retrying a failed difficulty avoids the previous set when enough alternatives are available. A retry only replaces that difficulty's questions; a question rotation chooses an unused variant from the same pool. Server grading looks up the saved source ID and alternative rather than the map slot. No database schema or seed changes are required.

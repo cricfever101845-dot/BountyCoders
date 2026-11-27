@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -67,31 +68,59 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
             for level in LEVELS
         }
 
-    def next_variant(cursor, uid, course_id, level, question_number):
-        cursor.execute(
-            "SELECT last_alt FROM question_rotation WHERE user_id=? AND course_id=? AND level=? AND question_number=?",
-            (uid, course_id, level, question_number),
-        )
-        row = cursor.fetchone()
-        choice = (int(row["last_alt"]) % 3) + 1 if row else ((question_number - 1 + LEVELS.index(level)) % 3) + 1
-        cursor.execute(
-            """INSERT INTO question_rotation (user_id,course_id,level,question_number,last_alt)
-               VALUES (?,?,?,?,?) ON CONFLICT(user_id,course_id,level,question_number)
-               DO UPDATE SET last_alt=excluded.last_alt""",
-            (uid, course_id, level, question_number, choice),
-        )
-        return choice
+    def question_key(question):
+        return (str(question["id"]), int(question["alt"]))
 
-    def make_question(row, alt):
-        if alt not in (1, 2, 3):
-            raise ValueError("Question variant is invalid")
-        text = row[f"question_text_{alt}"]
-        if not text:
-            raise ValueError("A question alternative is empty")
-        return {
-            "id": row["id"], "question_text": text,
-            "opponent_name": row["opponent_name"], "language": row["language"], "alt": alt,
-        }
+    def question_text_key(question):
+        return " ".join(question["question_text"].split()).casefold()
+
+    def difficulty_pool(cursor, course_id, level):
+        cursor.execute(
+            "SELECT * FROM questions WHERE course_id=? AND level=? ORDER BY question_number,id",
+            (course_id, level),
+        )
+        rows = cursor.fetchall()
+        # Original five map slots keep their own opponents even if questions
+        # are sampled from a different source group in this difficulty.
+        slot_rows = {int(row["question_number"]): row for row in rows}
+        if not all(n in slot_rows for n in range(1, 6)):
+            raise RuntimeError(f"Question bank for {level} is missing map slots.")
+        pool = []
+        seen_text = set()
+        for row in rows:
+            for alt in (1, 2, 3):
+                text = row[f"question_text_{alt}"]
+                expected = row[f"expected_output_{alt}"]
+                if not text or not expected:
+                    continue
+                question = {
+                    "id": row["id"], "question_text": text,
+                    "opponent_name": row["opponent_name"],
+                    "language": row["language"], "alt": alt,
+                }
+                key = question_text_key(question)
+                if key not in seen_text:
+                    pool.append(question)
+                    seen_text.add(key)
+        if len(pool) < 5:
+            raise RuntimeError(f"Question bank for {level} must contain at least five distinct questions.")
+        return pool, [slot_rows[n]["opponent_name"] for n in range(1, 6)]
+
+    def sample_difficulty(cursor, course_id, level, previous=()):
+        pool, opponents = difficulty_pool(cursor, course_id, level)
+        old_keys = {question_key(q) for q in previous}
+        old_texts = {question_text_key(q) for q in previous}
+        fresh = [q for q in pool if question_key(q) not in old_keys and question_text_key(q) not in old_texts]
+        rng = random.SystemRandom()
+        # With the built-in 15-question bank, retries can avoid all five
+        # immediately preceding questions. Smaller custom banks reuse only
+        # the minimum required number.
+        selected = rng.sample(fresh, min(5, len(fresh)))
+        if len(selected) < 5:
+            used = {question_key(q) for q in selected}
+            selected += rng.sample([q for q in pool if question_key(q) not in used], 5 - len(selected))
+        rng.shuffle(selected)
+        return [dict(q, opponent_name=opponents[i]) for i, q in enumerate(selected)]
 
     def latest_progress(cursor, uid, course_id):
         cursor.execute(
@@ -137,21 +166,9 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
             "total_bounty": int(user["total_bounty"] if user else 0),
         }
 
-    def fetch_questions(cursor, uid, course_id):
-        all_questions = {}
-        for level in LEVELS:
-            cursor.execute(
-                "SELECT * FROM questions WHERE course_id=? AND level=? ORDER BY question_number",
-                (course_id, level),
-            )
-            rows = cursor.fetchall()
-            if len(rows) != 5 or [int(row["question_number"]) for row in rows] != [1, 2, 3, 4, 5]:
-                raise RuntimeError(f"Question bank for {level} must contain five question groups.")
-            all_questions[level] = [
-                make_question(row, next_variant(cursor, uid, course_id, level, int(row["question_number"])))
-                for row in rows
-            ]
-        return all_questions
+    def fetch_questions(cursor, uid, course_id, previous=None):
+        previous = previous or {}
+        return {level: sample_difficulty(cursor, course_id, level, previous.get(level, [])) for level in LEVELS}
 
     def start_session():
         uid, error_response = user_id_or_response()
@@ -171,7 +188,8 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
                 conn.rollback()
                 return jsonify(error="Course not found"), 404
 
-            existing = None if force_new else latest_progress(cursor, uid, course_id)
+            latest = latest_progress(cursor, uid, course_id)
+            existing = None if force_new else latest
             if existing is not None:
                 questions = _decode_json(existing["session_questions"], {})
                 if any(len(questions.get(level, [])) != 5 for level in LEVELS):
@@ -181,7 +199,8 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
                 conn.commit()
                 return jsonify(resumed=True, session_questions=public_session(questions), **state)
 
-            questions = fetch_questions(cursor, uid, course_id)
+            previous = _decode_json(latest["session_questions"], {}) if latest else {}
+            questions = fetch_questions(cursor, uid, course_id, previous)
             cursor.execute(
                 """INSERT INTO progress
                    (user_id,course_id,current_level,current_question_number,completed,session_questions,bounty_earned)
@@ -228,6 +247,7 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
         try:
             cursor = conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
+            lock_execution_counter(cursor)
             progress = latest_progress(cursor, uid, course_id)
             if not progress or progress["current_level"] != level or int(progress["current_question_number"]) != number:
                 conn.rollback()
@@ -237,15 +257,18 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
                 conn.rollback()
                 return jsonify(error="Retry the difficulty before changing this question."), 409
             saved = _decode_json(progress["session_questions"], {})
-            cursor.execute(
-                "SELECT * FROM questions WHERE course_id=? AND level=? AND question_number=?",
-                (course_id, level, number),
-            )
-            row = cursor.fetchone()
-            if not row:
+            selected = saved.get(level, [])
+            if len(selected) != 5:
                 conn.rollback()
-                return jsonify(error="Question not found"), 404
-            question = make_question(row, next_variant(cursor, uid, course_id, level, number))
+                return jsonify(error="Saved questions are damaged. Reload the game."), 409
+            pool, opponents = difficulty_pool(cursor, course_id, level)
+            used_keys = {question_key(q) for q in selected}
+            used_texts = {question_text_key(q) for q in selected}
+            candidates = [q for q in pool if question_key(q) not in used_keys and question_text_key(q) not in used_texts]
+            if not candidates:
+                conn.rollback()
+                return jsonify(error="No unused question is available in this difficulty."), 409
+            question = dict(random.SystemRandom().choice(candidates), opponent_name=opponents[number - 1])
             saved[level][number - 1] = question
             cursor.execute(
                 "UPDATE progress SET session_questions=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",
@@ -399,18 +422,24 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
             questions = _decode_json(progress["session_questions"], {})
             chosen = questions.get(level, [])[number - 1]
             variant = int(chosen["alt"])
+            if variant not in (1, 2, 3):
+                return None, None, None, (jsonify(error="Saved question variant is invalid."), 409)
+            if ("question_id" in data and str(data["question_id"]) != str(chosen["id"])) or (
+                    "question_alt" in data and str(data["question_alt"]) != str(variant)):
+                return None, None, None, (jsonify(error="Your saved question changed. Reload the game to continue."), 409)
             cursor.execute(
-                "SELECT * FROM questions WHERE course_id=? AND level=? AND question_number=?",
-                (course_id, level, number),
+                "SELECT * FROM questions WHERE course_id=? AND level=? AND id=?",
+                (course_id, level, chosen["id"]),
             )
             question = cursor.fetchone()
-            if not question or str(question["id"]) != str(chosen["id"]):
+            if not question or question[f"question_text_{variant}"] != chosen["question_text"]:
                 return None, None, None, (jsonify(error="The saved question bank changed. Start a new journey."), 409)
             expected = question[f"expected_output_{variant}"]
             if not expected:
                 return None, None, None, (jsonify(error="Question grading data is unavailable."), 503)
             return {"course_id": course_id, "level": level, "number": number, "progress_id": progress["id"],
-                    "attempt_id": attempt["id"], "language": question["language"], "expected": expected}, progress, attempt, None
+                    "attempt_id": attempt["id"], "question_id": str(chosen["id"]), "question_alt": variant,
+                    "language": question["language"], "expected": expected}, progress, attempt, None
         except (KeyError, IndexError, TypeError, ValueError):
             return None, None, None, (jsonify(error="Saved question data is damaged. Restart this course."), 409)
         finally:
@@ -517,9 +546,14 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
             progress = cursor.fetchone()
             cursor.execute("SELECT * FROM difficulty_attempts WHERE id=? AND progress_id=?", (question["attempt_id"], question["progress_id"]))
             attempt = cursor.fetchone()
+            saved = _decode_json(progress["session_questions"], {}) if progress else {}
+            selected = saved.get(question["level"], []) if isinstance(saved, dict) else []
+            chosen = selected[question["number"] - 1] if len(selected) >= question["number"] else {}
             if (not progress or not attempt or attempt["status"] != "active"
                     or progress["current_level"] != question["level"]
-                    or int(progress["current_question_number"]) != question["number"]):
+                    or int(progress["current_question_number"]) != question["number"]
+                    or str(chosen.get("id")) != question["question_id"]
+                    or str(chosen.get("alt")) != str(question["question_alt"])):
                 conn.rollback()
                 body = {"error": "Your saved question changed. Reload the game to continue."}
                 save_request_response(request_id, body, 409, ran=ran)
@@ -684,6 +718,7 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
         try:
             cursor = conn.cursor()
             cursor.execute("BEGIN IMMEDIATE")
+            lock_execution_counter(cursor)
             progress = latest_progress(cursor, uid, course_id)
             if not progress:
                 conn.rollback()
@@ -703,12 +738,16 @@ def install(app, get_db, run_code=None, compare_outputs=None, classify_error=Non
                    VALUES (?,?,?,?,?,?,0,'active')""",
                 (progress["id"], uid, course_id, progress["current_level"], number, STARTING_HEARTS),
             )
-            cursor.execute("UPDATE progress SET current_question_number=1,last_updated=CURRENT_TIMESTAMP WHERE id=?", (progress["id"],))
+            saved = _decode_json(progress["session_questions"], {})
+            level = progress["current_level"]
+            saved[level] = sample_difficulty(cursor, course_id, level, saved.get(level, []))
+            cursor.execute("UPDATE progress SET current_question_number=1,session_questions=?,last_updated=CURRENT_TIMESTAMP WHERE id=?",
+                           (json.dumps(saved), progress["id"]))
             cursor.execute("SELECT * FROM progress WHERE id=?", (progress["id"],))
             progress = cursor.fetchone()
             state = game_state(cursor, progress, uid, course_id)
             conn.commit()
-            return jsonify(success=True, **state)
+            return jsonify(success=True, session_questions=public_session(saved), **state)
         except Exception:
             conn.rollback()
             logging.getLogger(__name__).exception("Could not retry difficulty")

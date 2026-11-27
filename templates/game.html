@@ -937,6 +937,11 @@
       const data = await readApiJson(resp);
       if (!resp.ok) throw new Error(data.error || 'Could not load this course.');
       sessionQuestions = data.session_questions || {};
+      if (!data.resumed) {
+        for (const stage of ['easy', 'medium', 'hard']) {
+          for (let i = 0; i < 5; i++) sessionStorage.removeItem('bc-code-draft-' + GAME_CONFIG.courseId + '-' + stage + '-' + i);
+        }
+      }
       hearts = Number.isInteger(data.hearts_remaining) ? data.hearts_remaining : 3;
       difficultyBounty = Number(data.difficulty_bounty || 0);
       attemptStatus = data.attempt_status || 'active';
@@ -1177,7 +1182,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           request_id: newRequestId(), course_id: GAME_CONFIG.courseId,
-          level: currentStage, question_number: currentLevelIndex + 1, code: code
+          level: currentStage, question_number: currentLevelIndex + 1, code: code,
+          question_id: sessionQuestions[currentStage]?.[currentLevelIndex]?.id,
+          question_alt: sessionQuestions[currentStage]?.[currentLevelIndex]?.alt
         })
       });
       const data = await readApiJson(response);
@@ -1215,7 +1222,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           request_id: newRequestId(), course_id: GAME_CONFIG.courseId,
-          level: currentStage, question_number: currentLevelIndex + 1, code: code
+          level: currentStage, question_number: currentLevelIndex + 1, code: code,
+          question_id: sessionQuestions[currentStage]?.[currentLevelIndex]?.id,
+          question_alt: sessionQuestions[currentStage]?.[currentLevelIndex]?.alt
         })
       });
       const data = await readApiJson(response);
@@ -1404,6 +1413,11 @@
       const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.error || 'Could not start a new attempt.');
       currentStage = data.current_level;
+      sessionQuestions = data.session_questions || sessionQuestions;
+      // This is a fresh set of questions, not a resume of old code drafts.
+      for (let i = 0; i < 5; i++) {
+        sessionStorage.removeItem('bc-code-draft-' + GAME_CONFIG.courseId + '-' + currentStage + '-' + i);
+      }
       currentLevelIndex = 0;
       currentLevelNumber = stageToBase(currentStage);
       hearts = data.hearts_remaining;
